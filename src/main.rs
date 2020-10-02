@@ -1,19 +1,19 @@
-mod templates;
 mod error;
+mod templates;
 
 use chrono::{DateTime, Duration, Utc};
+use error::Error;
 use flate2::read::DeflateDecoder;
-use openssl::{x509::X509, asn1::Asn1Time, rsa::Rsa, pkey::PKey, hash::MessageDigest};
+use openssl::{asn1::Asn1Time, hash::MessageDigest, pkey::PKey, rsa::Rsa, x509::X509};
 use roxmltree::Document;
 use serde::Deserialize;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::io::prelude::*;
+use std::str::FromStr;
 use templates::{LoginForm, Metadata, NameIDFormat, Template};
 use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{http::Response, Filter, Rejection, Reply};
-use error::Error;
-use std::str::FromStr;
-
+use bytes::{Bytes, Buf};
 
 fn with_db(
     db: PgPool,
@@ -87,7 +87,7 @@ async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP, Error> {
     }
 }
 
-async fn get_metadata_handler(
+async fn get_idp_metadata_handler(
     id: String,
     host: String,
     db: PgPool,
@@ -100,7 +100,8 @@ async fn get_metadata_handler(
                 valid_until: idp.metadata_valid_until,
                 certificate: base64::encode(idp.certificate),
                 // This has come from the database so we expect it to be valid.
-                name_id_format: NameIDFormat::from_str(&idp.name_id_format).expect("Received invalid name ID from the database"),
+                name_id_format: NameIDFormat::from_str(&idp.name_id_format)
+                    .expect("Received invalid name ID from the database"),
                 redirect_url: idp.redirect_url,
             };
 
@@ -111,6 +112,92 @@ async fn get_metadata_handler(
         Err(e) => {
             tracing::error!("Failed to generate certificate: {}", e);
             Ok(Response::builder().status(500).body("".into()))
+        }
+    }
+}
+
+struct SP {
+    id: String,
+    entity_id: String,
+    name_id_format: String,
+    consume_endpoint: String,
+    keys: Vec<Vec<u8>>,
+}
+
+async fn upsert_sp_metadata(idp_id: &str, sp_id: &str, db: &PgPool, body: Bytes) -> Result<(), Error> {
+    let doc = Document::parse(std::str::from_utf8(body.bytes())?)?;
+    let entity_id = doc.descendants().find_map(|n| {
+        if n.tag_name().name() == "EntityDescriptor" {
+            n.attribute("entityID")
+        } else {
+            None
+        }
+    }).ok_or(Error::MissingField("EntityDescriptor".into()))?;
+    let name_id_format = doc.descendants().find_map(|n| {
+        if n.tag_name().name() == "NameIDFormat" {
+            n.text()
+        } else {
+            None
+        }
+    }).ok_or(Error::MissingField("NameIDFormat".into()))?;
+
+    if let Err(e) = NameIDFormat::from_str(name_id_format) {
+        return Err(Error::InvalidField("NameIDFormat".into(), name_id_format.into()));
+    }
+
+    let consume_endpoint = doc.descendants().find_map(|n| {
+        if n.tag_name().name() == "AssertionConsumerService" {
+            n.attribute("Location")
+        } else {
+            None
+        }
+    }).ok_or(Error::MissingField("AssertionConsumerService".into()))?;
+
+    let keys = doc.descendants().filter_map(|n| {
+        if n.tag_name().name() == "KeyInfo" {
+            n.text()
+        } else {
+            None
+        }
+    }).collect::<Vec<&str>>();
+
+    let mut tx = db.begin().await?;
+
+    sqlx::query!(
+        r#"INSERT INTO sps VALUES ($1, $2, $3, $4)"#,
+        sp_id, entity_id, name_id_format, consume_endpoint
+    ).execute(&mut tx).await?;
+
+    for key in keys {
+        let der_key = base64::decode(key)?;
+        sqlx::query!(r#"INSERT INTO sp_keys(sp_id, key) VALUES ($1, $2)"#, sp_id, der_key).execute(&mut tx).await?;
+    }
+
+    sqlx::query!(r#"INSERT INTO idps_x_sps(idp_id, sp_id) VALUES ($1, $2)"#, idp_id, sp_id).execute(&mut tx).await?;
+
+    tx.commit().await?;
+
+    Ok(())
+}
+
+async fn upsert_sp_metadata_handler(idp_id: String, sp_id: String, db: PgPool, body: Bytes) -> Result<impl Reply, Rejection> {
+    match upsert_sp_metadata(&idp_id, &sp_id, &db, body).await {
+        Ok(()) => Ok(Response::builder().status(201).body("")),
+        Err(err@Error::XmlError(_)) => {
+            tracing::debug!("Received invalid XML doc for SP metadata: {}", err);
+            Ok(Response::builder().status(400).body(""))
+        },
+        Err(err@Error::MissingField(_)) => {
+            tracing::debug!("Received SP metadata with missing field: {}", err);
+            Ok(Response::builder().status(400).body(""))
+        },
+        Err(err@Error::InvalidField(_, _)) => {
+            tracing::debug!("Received invalid field in SP metadata: {}", err);
+            Ok(Response::builder().status(400).body(""))
+        }
+        Err(e) => {
+            tracing::debug!("Upserting SP metadata failed: {}", e);
+            Ok(Response::builder().status(500).body(""))
         }
     }
 }
@@ -186,12 +273,20 @@ async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
         .await
         .expect("Failed to create Pg connection pool");
 
-    let metadata = warp::get().and(
+    let idp_metadata = warp::get().and(
         warp::path!(String / "metadata")
             .and(warp::header("Host"))
-            .and(with_db(db))
-            .and_then(get_metadata_handler)
-            .with(warp::trace::named("get-metadata")),
+            .and(with_db(db.clone()))
+            .and_then(get_idp_metadata_handler)
+            .with(warp::trace::named("get-idp-metadata")),
+    );
+
+    let sp_metadata = warp::post().and(
+        warp::path!(String / String)
+            .and(with_db(db.clone()))
+            .and(warp::body::bytes())
+            .and_then(upsert_sp_metadata_handler)
+            .with(warp::trace::named("upsert-sp-metadata")),
     );
 
     let login = warp::get().and(
@@ -207,7 +302,7 @@ async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
             .with(warp::trace::named("config")),
     );
 
-    metadata.or(login).or(config)
+    idp_metadata.or(login).or(config).or(sp_metadata)
 }
 
 #[tokio::main]

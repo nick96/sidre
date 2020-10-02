@@ -1,11 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE idps (
-      -- IdPs ID. This is referenced in the URL.
       id VARCHAR PRIMARY KEY
-      -- X509 certificate.
     , certificate BYTEA NOT NULL
-      -- Private key associated with the cert.
     , private_key BYTEA NOT NULL
     , entity_id VARCHAR NOT NULL
     , metadata_valid_until TIMESTAMPTZ NOT NULL
@@ -14,8 +11,19 @@ CREATE TABLE idps (
 );
 
 CREATE TABLE sps (
-    -- SP's ID. This is references in the the URL.
-      id VARCHAR PRIMARY KEY
+        id VARCHAR PRIMARY KEY
+      , entity_id VARCHAR NOT NULL
+      , name_id_format VARCHAR NOT NULL
+      , consume_endpoint VARCHAR NOT NULL
+);
+
+CREATE TABLE sp_keys (
+        id uuid PRIMARY KEY DEFAULT uuid_generate_v4()
+      , sp_id VARCHAR NOT NULL
+      , key BYTEA NOT NULL
+      
+      , FOREIGN KEY(sp_id) REFERENCES sps(id)
+
 );
 
 CREATE TABLE idps_x_sps (
