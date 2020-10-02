@@ -19,9 +19,6 @@
             </mdui:UIInfo>
             <idpdisc:DiscoveryResponse index="0" Binding="urn:oasis:names:tc:SAML:profiles:SSO:idp-discovery-protocol" Location="https://service.example.com/SAML2/Login" />
         </md:Extensions>
-        <md:KeyDescriptor use="encryption">
-            <ds:KeyInfo>...</ds:KeyInfo>
-        </md:KeyDescriptor>
         <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat>
         <md:AssertionConsumerService index="0" Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://service.example.com/SAML2/SSO/POST" />
         <md:AttributeConsumingService index="0">

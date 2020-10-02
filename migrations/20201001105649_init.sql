@@ -23,6 +23,7 @@ CREATE TABLE sp_keys (
       , key BYTEA NOT NULL
       
       , FOREIGN KEY(sp_id) REFERENCES sps(id)
+      , UNIQUE(sp_id, key)
 
 );
 
