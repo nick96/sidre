@@ -21,6 +21,7 @@ serde = "1.0.116"
 flate2 = "1.0.17"
 roxmltree = "0.13.0"
 bytes = "0.5.6"
-
-[dev-dependencies]
+tracing-futures = "0.2.4"
+uuid = {version = "0.8.1", features = ["v4"]}
 rand = "0.7.3"
+

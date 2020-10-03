@@ -1,8 +1,8 @@
-use openssl::{asn1::Asn1Time, hash::MessageDigest, pkey::PKey, rsa::Rsa, x509::X509};
-use chrono::{DateTime, Duration, Utc};
 use crate::error::Error;
+use chrono::{DateTime, Duration, Utc};
+use openssl::{asn1::Asn1Time, hash::MessageDigest, pkey::PKey, rsa::Rsa, x509::X509};
 
-
+#[tracing::instrument(level = "info", err)]
 pub fn generate_cert() -> Result<(X509, Vec<u8>, DateTime<Utc>), Error> {
     let expiry = Utc::now() + Duration::days(365);
     let rsa = Rsa::generate(4096)?;
@@ -26,7 +26,7 @@ pub fn generate_cert() -> Result<(X509, Vec<u8>, DateTime<Utc>), Error> {
 #[cfg(test)]
 mod test {
     use super::generate_cert;
-    use openssl::{x509::X509, rsa::Rsa, pkey::PKey};
+    use openssl::{pkey::PKey, rsa::Rsa, x509::X509};
     #[test]
     fn generate_valid_cert() {
         let (cert, pk, _) = generate_cert().unwrap();

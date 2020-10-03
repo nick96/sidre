@@ -24,4 +24,8 @@ pub enum Error {
     InvalidField(String, String),
     #[error("Text is not valid UTF8: {0}")]
     InvalidUtf8(#[from] std::str::Utf8Error),
+    #[error("No SP with entity ID {1} found for IdP {0}")]
+    ServiceProviderNotFound(String, String),
+    #[error("No IdP with ID {0}")]
+    IdentityProviderNotFound(String),
 }

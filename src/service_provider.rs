@@ -1,75 +1,33 @@
 use crate::{error::Error, templates::NameIDFormat};
+use bytes::{Buf, Bytes};
 use roxmltree::Document;
 use sqlx::postgres::PgPool;
-use warp::{http::Response, Rejection, Reply};
 use std::str::FromStr;
-use bytes::{Bytes, Buf};
+use warp::{http::Response, Rejection, Reply};
 
-struct SP {
-    id: String,
-    entity_id: String,
-    name_id_format: String,
-    consume_endpoint: String,
-    keys: Vec<Vec<u8>>,
+#[derive(sqlx::FromRow)]
+pub struct SP {
+    pub id: String,
+    pub entity_id: String,
+    pub name_id_format: String,
+    pub consume_endpoint: String,
+    #[sqlx(default)]
+    pub keys: Vec<Vec<u8>>,
 }
 
-async fn upsert_sp_metadata(
+#[tracing::instrument(
+    level = "info",
+    skip(db, keys, entity_id, name_id_format, consume_endpoint)
+)]
+async fn create_service_provider(
+    db: &PgPool,
     idp_id: &str,
     sp_id: &str,
-    db: &PgPool,
-    body: Bytes,
+    entity_id: &str,
+    name_id_format: &str,
+    consume_endpoint: &str,
+    keys: Vec<&str>,
 ) -> Result<(), Error> {
-    let doc = Document::parse(std::str::from_utf8(body.bytes())?)?;
-    let entity_id = doc
-        .descendants()
-        .find_map(|n| {
-            if n.tag_name().name() == "EntityDescriptor" {
-                n.attribute("entityID")
-            } else {
-                None
-            }
-        })
-        .ok_or(Error::MissingField("EntityDescriptor".into()))?;
-    let name_id_format = doc
-        .descendants()
-        .find_map(|n| {
-            if n.tag_name().name() == "NameIDFormat" {
-                n.text()
-            } else {
-                None
-            }
-        })
-        .ok_or(Error::MissingField("NameIDFormat".into()))?;
-
-    if let Err(e) = NameIDFormat::from_str(name_id_format) {
-        return Err(Error::InvalidField(
-            "NameIDFormat".into(),
-            name_id_format.into(),
-        ));
-    }
-
-    let consume_endpoint = doc
-        .descendants()
-        .find_map(|n| {
-            if n.tag_name().name() == "AssertionConsumerService" {
-                n.attribute("Location")
-            } else {
-                None
-            }
-        })
-        .ok_or(Error::MissingField("AssertionConsumerService".into()))?;
-
-    let keys = doc
-        .descendants()
-        .filter_map(|n| {
-            if n.tag_name().name() == "KeyInfo" {
-                n.text()
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<&str>>();
-
     let mut tx = db.begin().await?;
 
     sqlx::query!(
@@ -106,6 +64,80 @@ async fn upsert_sp_metadata(
     Ok(())
 }
 
+#[tracing::instrument(level = "info", skip(db, body))]
+async fn upsert_sp_metadata(
+    idp_id: &str,
+    sp_id: &str,
+    db: &PgPool,
+    body: Bytes,
+) -> Result<(), Error> {
+    let doc = Document::parse(std::str::from_utf8(body.bytes())?)?;
+    let entity_id = doc
+        .descendants()
+        .find_map(|n| {
+            if n.tag_name().name() == "EntityDescriptor" {
+                n.attribute("entityID")
+            } else {
+                None
+            }
+        })
+        .ok_or(Error::MissingField("EntityDescriptor".into()))?;
+    let name_id_format = doc
+        .descendants()
+        .find_map(|n| {
+            if n.tag_name().name() == "NameIDFormat" {
+                n.text()
+            } else {
+                None
+            }
+        })
+        .ok_or(Error::MissingField("NameIDFormat".into()))?;
+
+    if let Err(e) = NameIDFormat::from_str(name_id_format) {
+        tracing::info!("Invalid name ID format: {}", e);
+        return Err(Error::InvalidField(
+            "NameIDFormat".into(),
+            name_id_format.into(),
+        ));
+    }
+
+    let consume_endpoint = doc
+        .descendants()
+        .find_map(|n| {
+            if n.tag_name().name() == "AssertionConsumerService" {
+                n.attribute("Location")
+            } else {
+                None
+            }
+        })
+        .ok_or(Error::MissingField("AssertionConsumerService".into()))?;
+
+    let keys = doc
+        .descendants()
+        .filter_map(|n| {
+            if n.tag_name().name() == "KeyInfo" {
+                n.text()
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<&str>>();
+
+    create_service_provider(
+        db,
+        idp_id,
+        sp_id,
+        entity_id,
+        name_id_format,
+        consume_endpoint,
+        keys,
+    )
+    .await?;
+
+    Ok(())
+}
+
+#[tracing::instrument(level = "info", skip(db, body))]
 pub async fn upsert_sp_metadata_handler(
     idp_id: String,
     sp_id: String,

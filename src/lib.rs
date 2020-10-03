@@ -1,23 +1,23 @@
-mod x509;
-mod identity_provider;
-mod service_provider;
-mod db;
-mod templates;
-mod error;
 mod config;
+mod db;
+mod error;
+mod identity_provider;
 mod login;
+mod service_provider;
+mod templates;
+mod x509;
 
-use warp::{Filter, Reply, Rejection};
-use sqlx::postgres::PgPoolOptions;
 use crate::{
-    identity_provider::get_idp_metadata_handler,
-    service_provider::upsert_sp_metadata_handler,
-    db::with_db,
-    login::{LoginRequestParams, login_handler},
     config::config_handler,
+    db::{create_db_pool, with_db},
+    identity_provider::get_idp_metadata_handler,
+    login::{login_handler, LoginRequestParams},
+    service_provider::upsert_sp_metadata_handler,
 };
 use tracing_subscriber::fmt::format::FmtSpan;
+use warp::{Filter, Rejection, Reply};
 
+#[tracing::instrument(level = "info")]
 pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     let filter =
         std::env::var("RUST_LOG").unwrap_or_else(|_| "tracing=info,sider=debug".to_owned());
@@ -27,13 +27,7 @@ pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clo
         .with_span_events(FmtSpan::CLOSE)
         .try_init();
 
-    let url = std::env::var("DATABASE_URL").expect("No DATABASE_URL environment variable");
-    tracing::info!("url={}", url);
-    let db = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&url)
-        .await
-        .expect("Failed to create Pg connection pool");
+    let db = create_db_pool().await;
 
     let idp_metadata = warp::get().and(
         warp::path!(String / "metadata")
@@ -54,6 +48,7 @@ pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clo
     let login = warp::get().and(
         warp::path!(String / "sso")
             .and(warp::query::<LoginRequestParams>())
+            .and(with_db(db))
             .and_then(login_handler)
             .with(warp::trace::named("login")),
     );
@@ -64,7 +59,11 @@ pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clo
             .with(warp::trace::named("config")),
     );
 
-    idp_metadata.or(login).or(config).or(sp_metadata)
+    idp_metadata
+        .or(login)
+        .or(config)
+        .or(sp_metadata)
+        .with(warp::trace::request())
 }
 
 #[cfg(test)]
