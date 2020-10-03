@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Setup git commit hooks
+
+here=$(dirname $(realpath $0))
+
+ln -s "$here/pre-commit" "$here/../.git/hooks/pre-commit"
