@@ -81,7 +81,7 @@ async fn upsert_sp_metadata(
                 None
             }
         })
-        .ok_or(Error::MissingField("EntityDescriptor".into()))?;
+        .ok_or_else(|| Error::MissingField("EntityDescriptor".into()))?;
     let name_id_format = doc
         .descendants()
         .find_map(|n| {
@@ -91,7 +91,7 @@ async fn upsert_sp_metadata(
                 None
             }
         })
-        .ok_or(Error::MissingField("NameIDFormat".into()))?;
+        .ok_or_else(|| Error::MissingField("NameIDFormat".into()))?;
 
     if let Err(e) = NameIDFormat::from_str(name_id_format) {
         tracing::info!("Invalid name ID format: {}", e);
@@ -110,7 +110,7 @@ async fn upsert_sp_metadata(
                 None
             }
         })
-        .ok_or(Error::MissingField("AssertionConsumerService".into()))?;
+        .ok_or_else(|| Error::MissingField("AssertionConsumerService".into()))?;
 
     let keys = doc
         .descendants()

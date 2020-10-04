@@ -104,7 +104,7 @@ async fn run_login(
                 None
             }
         })
-        .ok_or(Error::MissingField("Issuer".into()))?;
+        .ok_or_else(|| Error::MissingField("Issuer".into()))?;
 
     // Clone the ID here so we can use it when getting the SP as well.
     let idp_id = id.clone();
@@ -161,7 +161,7 @@ async fn run_login(
     Ok(LoginForm {
         sp_consume_endpoint: sp.consume_endpoint,
         saml_response: base64::encode(response),
-        relay_state: relay_state,
+        relay_state,
     }
     .render()?)
 }
