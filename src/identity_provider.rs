@@ -19,7 +19,7 @@ pub struct IdP {
 }
 
 #[tracing::instrument(level = "info", skip(db))]
-async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP, Error> {
+pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP, Error> {
     match sqlx::query_as!(
         IdP,
         "

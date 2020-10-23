@@ -7,7 +7,7 @@ use crate::{
 use askama::Template;
 use chrono::{Duration, Utc};
 use flate2::read::DeflateDecoder;
-use openssl::{hash::MessageDigest, pkey::PKey, sign::Signer};
+use openssl::{hash::hash, hash::MessageDigest, pkey::PKey, sign::Signer};
 use rand::Rng;
 use roxmltree::Document;
 use serde::Deserialize;
@@ -41,11 +41,18 @@ fn random_name_id(format: NameIDFormat) -> String {
     }
 }
 
-fn sign_assertion(private_key: Vec<u8>, assertion: Assertion) -> Result<Vec<u8>, Error> {
+fn digest_assertion(assertion: Assertion) -> Result<Vec<u8>, Error> {
+    Ok(
+        hash(MessageDigest::sha256(), assertion.render()?.as_bytes())?
+            .as_ref()
+            .to_vec(),
+    )
+}
+
+fn sign_digest(private_key: Vec<u8>, digest: &[u8]) -> Result<Vec<u8>, Error> {
     let pk = PKey::private_key_from_der(&private_key)?;
     let mut signer = Signer::new(MessageDigest::sha256(), &pk)?;
-    let data: String = assertion.render()?;
-    signer.update(data.as_bytes())?;
+    signer.update(digest)?;
     Ok(signer.sign_to_vec()?)
 }
 
@@ -54,42 +61,51 @@ fn generate_saml_response(request_id: String, idp: &IdP, sp: &SP) -> Result<Stri
     let name_id_format = NameIDFormat::from_str(&idp.name_id_format)?;
     let mut response = Response {
         authn_request_id: request_id,
-        assertion_id: "".into(),
+        assertion_id: random_string(15),
         issue_instant: Utc::now(),
         issuer: idp.entity_id.clone(),
         name_id_format: name_id_format.clone(),
         name_id: random_name_id(name_id_format),
-        response_id: "".into(),
+        response_id: random_string(15),
         consume_endpoint: sp.consume_endpoint.clone(),
         certificate: base64::encode(idp.certificate.clone()),
         not_before: now,
         not_on_or_after: now + Duration::minutes(5),
         sp_entity_id: sp.entity_id.clone(),
-        signature: "".into(),
+        assertion_digest: "".into(),
+        assertion_digest_signature: "".into(),
     };
     let assertion = Assertion::from(response.clone());
-    let signature = sign_assertion(idp.private_key.clone(), assertion)?;
-    response.signature = base64::encode(signature);
+    let digest = digest_assertion(assertion)?;
+    response.assertion_digest = base64::encode(&digest);
+    let signature = sign_digest(idp.private_key.clone(), &digest)?;
+    response.assertion_digest_signature = base64::encode(signature);
     Ok(response.render()?)
 }
 
-#[tracing::instrument(level = "info")]
+#[tracing::instrument(level = "info", skip(db, saml_request, relay_state, id))]
 async fn run_login(
     id: String,
     saml_request: String,
     relay_state: Option<String>,
     db: &PgPool,
 ) -> Result<String, Error> {
+    tracing::debug!("Running login for IdP {}", id);
+    tracing::debug!("Relay state: {:?}", relay_state);
+    tracing::debug!("Encoded SAML request: {}", saml_request);
+
     let deflated_request = base64::decode(saml_request)?;
     let mut deflater = DeflateDecoder::new(&deflated_request[..]);
     let mut buf = String::new();
     deflater.read_to_string(&mut buf)?;
 
+    tracing::debug!("Inflated SAML request: {}", buf);
+
     let doc = Document::parse(&buf)?;
-    if !doc.root().has_tag_name("samlp:AuthnRequest") {
+    if !doc.root_element().has_tag_name("AuthnRequest") {
         tracing::info!(
             "Expected AuthnRequest document, received {}",
-            doc.root().tag_name().name()
+            doc.root_element().tag_name().name()
         );
         return Err(Error::ExpectedAuthnRequestError);
     }
@@ -158,6 +174,7 @@ async fn run_login(
             }
         })?;
     let response = generate_saml_response("".into(), &idp, &sp)?;
+    tracing::debug!("SAML assertion: {}", response);
     Ok(LoginForm {
         sp_consume_endpoint: sp.consume_endpoint,
         saml_response: base64::encode(response),
@@ -166,13 +183,14 @@ async fn run_login(
     .render()?)
 }
 
-#[tracing::instrument(level = "info")]
+#[tracing::instrument(level = "info", skip(db, query))]
 pub async fn login_handler(
     id: String,
     query: LoginRequestParams,
     db: PgPool,
 ) -> Result<impl Reply, Rejection> {
     tracing::info!("id={}", id);
+    tracing::debug!("Query params: {:?}", query);
     match run_login(id, query.saml_request, query.relay_state, &db).await {
         Ok(form) => Ok(http::Response::builder()
             .status(200)

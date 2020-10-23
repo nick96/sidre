@@ -10,15 +10,9 @@ services:
         ports:
             - "5432:5432"
     
-    sidre:
+    sidre-vscode:
         build:
-            dockerfile: docker/Dockerfile.release
+            dockerfile: .devcontainer/Dockerfile
             context: .
-            args: 
-                SQLX_OFFLINE: 1
         environment:
             DATABASE_URL: "postgres://sidre:password@pg/sidre"
-            RUST_LOG: "WARN,tracing=INFO,sidre=INFO"
-        ports:
-            - "8080:8080"
-    

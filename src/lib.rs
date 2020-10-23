@@ -8,7 +8,7 @@ mod templates;
 mod x509;
 
 use crate::{
-    config::config_handler,
+    config::{idp_config_handler, idp_sp_config_handler},
     db::{create_db_pool, with_db},
     identity_provider::get_idp_metadata_handler,
     login::{login_handler, LoginRequestParams},
@@ -53,11 +53,15 @@ pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clo
             .with(warp::trace::named("login")),
     );
 
-    let config = warp::post().and(
-        warp::path!(String / "config")
-            .and_then(config_handler)
-            .with(warp::trace::named("config")),
-    );
+    let config = warp::post()
+        .and(
+            warp::path!(String / "config")
+                .and_then(idp_config_handler)
+                .with(warp::trace::named("config-idp")),
+        )
+        .or(warp::path!(String / String / "config")
+            .and_then(idp_sp_config_handler)
+            .with(warp::trace::named("config-idp-sp")));
 
     idp_metadata
         .or(login)
@@ -117,5 +121,40 @@ mod test {
         assert_eq!(first_resp.status(), 200);
         assert_eq!(second_resp.status(), 200);
         assert_ne!(first_resp.body(), second_resp.body());
+    }
+
+    #[tokio::test]
+    async fn test_register_sp() {
+        // TODO: Test util to build SP metadata
+    }
+
+    #[tokio::test]
+    async fn test_sp_login() {
+        // TODO: Test util to build authn request
+    }
+
+    #[tokio::test]
+    async fn test_idp_config() {
+        let db = db::create_db_pool().await;
+        let idp_id = random_string();
+        let _ = identity_provider::ensure_idp(&db, &random_string(), &random_string());
+        let filter = app().await;
+        let resp = warp::test::request()
+            .path(&format!("/{}/config", idp_id))
+            .reply(&filter)
+            .await;
+        assert_eq!(resp.status(), 200);
+    }
+
+    #[tokio::test]
+    async fn test_idp_sp_config() {
+        let idp_id = random_string();
+        let sp_id = random_string();
+        let filter = app().await;
+        let resp = warp::test::request()
+            .path(&format!("/{}/{}/config", idp_id, sp_id))
+            .reply(&filter)
+            .await;
+        assert_eq!(resp.status(), 200);
     }
 }

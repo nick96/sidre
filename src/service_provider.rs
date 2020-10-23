@@ -1,4 +1,4 @@
-use crate::{error::Error, templates::NameIDFormat};
+use crate::{error::Error, identity_provider::ensure_idp, templates::NameIDFormat};
 use bytes::{Buf, Bytes};
 use roxmltree::Document;
 use sqlx::postgres::PgPool;
@@ -15,10 +15,7 @@ pub struct SP {
     pub keys: Vec<Vec<u8>>,
 }
 
-#[tracing::instrument(
-    level = "info",
-    skip(db, keys, entity_id, name_id_format, consume_endpoint)
-)]
+#[tracing::instrument(level = "info", skip(db, keys), err)]
 async fn create_service_provider(
     db: &PgPool,
     idp_id: &str,
@@ -29,7 +26,12 @@ async fn create_service_provider(
     keys: Vec<&str>,
 ) -> Result<(), Error> {
     let mut tx = db.begin().await?;
-
+    ensure_idp(
+        db,
+        idp_id,
+        &std::env::var("HOST").unwrap_or_else(|_| "localhost:8080".into()),
+    )
+    .await?;
     sqlx::query!(
         r#"INSERT INTO sps VALUES ($1, $2, $3, $4)"#,
         sp_id,

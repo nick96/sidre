@@ -99,6 +99,7 @@ pub struct Response {
     pub not_on_or_after: DateTime<Utc>,
     pub not_before: DateTime<Utc>,
     pub sp_entity_id: String,
-    pub signature: String,
+    pub assertion_digest: String,
+    pub assertion_digest_signature: String,
     pub certificate: String,
 }
