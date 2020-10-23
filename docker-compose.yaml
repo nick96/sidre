@@ -9,16 +9,13 @@ services:
             POSTGRES_PASSWORD: "password"
         ports:
             - "5432:5432"
-    
-    sidre:
+
+    sidre-vscode:
         build:
-            dockerfile: docker/Dockerfile.release
-            context: .
-            args: 
-                SQLX_OFFLINE: 1
+            dockerfile: ../docker/Dockerfile.vscode
+            context: ./sidre
+        volumes:
+            - .:/workspace:cached
+        command: '/bin/sh -c "while sleep 1000; do :; done"'
         environment:
             DATABASE_URL: "postgres://sidre:password@pg/sidre"
-            RUST_LOG: "WARN,tracing=INFO,sidre=INFO"
-        ports:
-            - "8080:8080"
-    
