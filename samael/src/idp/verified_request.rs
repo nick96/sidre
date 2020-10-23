@@ -1,4 +1,4 @@
-use crate::crypto::{self, verify_signed_xml};
+use crate::crypto::{self, verify_signed_authn_request};
 use crate::schema::AuthnRequest;
 
 use super::error::Error;
@@ -44,7 +44,7 @@ impl<'a> UnverifiedAuthnRequest<'a> {
     }
 
     pub fn try_verify_with_cert(self, der_cert: &[u8]) -> Result<VerifiedAuthnRequest, Error> {
-        verify_signed_xml(self.xml.as_bytes(), der_cert)?;
+        verify_signed_authn_request(self.xml.as_bytes(), der_cert)?;
         Ok(VerifiedAuthnRequest(self.request))
     }
 }

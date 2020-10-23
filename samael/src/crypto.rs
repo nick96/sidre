@@ -1,18 +1,18 @@
 use snafu::Snafu;
 
-use xmlsec::{self, XmlSecKey, XmlSecKeyFormat, XmlSecSignatureContext};
 use libxml::parser::Parser as XmlParser;
+use xmlsec::{self, XmlSecDocumentExt, XmlSecKey, XmlSecKeyFormat, XmlSecSignatureContext};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
     InvalidSignature,
 
-        #[snafu(display("xml sec Error: {}", error))]
+    #[snafu(display("xml sec Error: {}", error))]
     XmlParseError {
         error: libxml::parser::XmlParseError,
     },
 
-        #[snafu(display("xml sec Error: {}", error))]
+    #[snafu(display("xml sec Error: {}", error))]
     XmlSecError {
         error: xmlsec::XmlSecError,
     },
@@ -34,6 +34,11 @@ pub fn sign_xml<Bytes: AsRef<[u8]>>(xml: Bytes, private_key_der: &[u8]) -> Resul
     let parser = XmlParser::default();
     let document = parser.parse_string(xml)?;
 
+    let namespace = ("saml2", "urn:oasis:names:tc:SAML:2.0:assertion");
+    let search = "//saml2:Assertion";
+    let idattr_name = "ID";
+    document.specify_idattr(search, idattr_name, Some(&[namespace]))?;
+
     let key = XmlSecKey::from_memory(private_key_der, XmlSecKeyFormat::Der, None)?;
     let mut context = XmlSecSignatureContext::new();
     context.insert_key(key);
@@ -43,12 +48,38 @@ pub fn sign_xml<Bytes: AsRef<[u8]>>(xml: Bytes, private_key_der: &[u8]) -> Resul
     Ok(document.to_string())
 }
 
-pub fn verify_signed_xml<Bytes: AsRef<[u8]>>(
+pub fn verify_signed_authn_request<Bytes: AsRef<[u8]>>(
     xml: Bytes,
     x509_cert_der: &[u8],
 ) -> Result<(), Error> {
+    let namespace = ("samlp", "urn:oasis:names:tc:SAML:2.0:protocol");
+    let search = "//samlp:AuthnRequest";
+    let idattr_name = "ID";
+
+    verify_signed_xml(xml, x509_cert_der, Some(&[namespace]), search, idattr_name)
+}
+
+pub fn verify_signed_auth_response<Bytes: AsRef<[u8]>>(
+    xml: Bytes,
+    x509_cert_der: &[u8],
+) -> Result<(), Error> {
+    let namespace = ("saml2", "urn:oasis:names:tc:SAML:2.0:assertion");
+    let search = "//saml2:Assertion";
+    let idattr_name = "ID";
+
+    verify_signed_xml(xml, x509_cert_der, Some(&[namespace]), search, idattr_name)
+}
+
+pub fn verify_signed_xml<Bytes: AsRef<[u8]>>(
+    xml: Bytes,
+    x509_cert_der: &[u8],
+    namespaces: Option<&[(&str, &str)]>,
+    search: &str,
+    idattr_name: &str,
+) -> Result<(), Error> {
     let parser = XmlParser::default();
     let document = parser.parse_string(xml)?;
+    document.specify_idattr(search, idattr_name, namespaces)?;
 
     let key = XmlSecKey::from_memory(x509_cert_der, XmlSecKeyFormat::CertDer, None)?;
     let mut context = XmlSecSignatureContext::new();

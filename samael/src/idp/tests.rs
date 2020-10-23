@@ -1,5 +1,5 @@
 use super::*;
-use crate::crypto::verify_signed_xml;
+use crate::crypto::{verify_signed_auth_response, verify_signed_authn_request};
 use crate::idp::sp_extractor::{RequiredAttribute, SPMetadataExtractor};
 use crate::idp::verified_request::UnverifiedAuthnRequest;
 
@@ -21,7 +21,7 @@ fn test_extract_sp() {
         .expect("failed to get x509 cert");
 
     let authn_request_xml = include_str!("../../test_vectors/authn_request.xml");
-    verify_signed_xml(authn_request_xml, x509cert.as_slice(), Some("ID"))
+    verify_signed_authn_request(authn_request_xml, x509cert.as_slice())
         .expect("failed to verify authn request");
 
     let issuer = extractor.issuer().expect("no issuer");
@@ -100,7 +100,7 @@ fn test_signed_response() {
     let out_xml = out_response
         .to_xml()
         .expect("failed to serialize response xml");
-    verify_signed_xml(out_xml.as_bytes(), idp_cert.as_slice(), Some("ID"))
+    verify_signed_auth_response(out_xml.as_bytes(), idp_cert.as_slice())
         .expect("verification failed");
 }
 
@@ -114,7 +114,7 @@ fn test_signed_response_threads() {
         let _ = unverified
             .try_verify_self_signed()
             .expect("failed to verify self signed signature");
-        verify_signed_xml(authn_request_xml, cert_der, Some("ID")).expect("failed verify");
+        verify_signed_authn_request(authn_request_xml, cert_der).expect("failed verify");
     };
 
     let mut handles = vec![];

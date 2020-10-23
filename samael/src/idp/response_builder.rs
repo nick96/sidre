@@ -117,6 +117,7 @@ fn build_assertion(
     recipient: &str,
     audience: &str,
     attributes: &[ResponseAttribute],
+    x509_cert_der: &[u8],
 ) -> Assertion {
     let assertion_id = crypto::gen_saml_assertion_id();
 
@@ -125,7 +126,7 @@ fn build_assertion(
         issue_instant: Utc::now(),
         version: "2.0".to_string(),
         issuer,
-        signature: None,
+        signature: Some(signature_template(&assertion_id, x509_cert_der)),
         subject: Some(Subject {
             name_id: Some(SubjectNameID {
                 format: Some("urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified".to_string()),
@@ -178,7 +179,8 @@ fn build_response(
         destination: Some(destination.to_string()),
         consent: None,
         issuer: Some(issuer.clone()),
-        signature: Some(signature_template(&response_id, x509_cert)),
+        // signature: Some(signature_template(&response_id, x509_cert)),
+        signature: None,
         status: Status {
             status_code: StatusCode {
                 value: Some("urn:oasis:names:tc:SAML:2.0:status:Success".to_string()),
@@ -194,6 +196,7 @@ fn build_response(
             destination,
             audience,
             attributes,
+            x509_cert,
         )),
     }
 }
