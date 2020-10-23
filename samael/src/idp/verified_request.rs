@@ -44,7 +44,7 @@ impl<'a> UnverifiedAuthnRequest<'a> {
     }
 
     pub fn try_verify_with_cert(self, der_cert: &[u8]) -> Result<VerifiedAuthnRequest, Error> {
-        verify_signed_xml(self.xml.as_bytes(), der_cert, Some("ID"))?;
+        verify_signed_xml(self.xml.as_bytes(), der_cert)?;
         Ok(VerifiedAuthnRequest(self.request))
     }
 }
