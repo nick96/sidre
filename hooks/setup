@@ -3,4 +3,4 @@
 
 here=$(dirname $(realpath $0))
 
-ln -s "$here/pre-commit" "$here/../.git/hooks/pre-commit"
+ln -fs "$here/pre-commit" "$here/../.git/hooks/pre-commit"
