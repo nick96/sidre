@@ -14,7 +14,6 @@ pub fn with_db(
 /// fails to create the database pool, it will also blow up.
 pub async fn create_db_pool() -> PgPool {
     let url = std::env::var("DATABASE_URL").expect("No DATABASE_URL environment variable");
-    tracing::info!("url={}", url);
     PgPoolOptions::new()
         .max_connections(5)
         .connect(&url)
