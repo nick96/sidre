@@ -190,6 +190,14 @@ pub async fn login_handler(
             .status(200)
             .header(warp::http::header::CONTENT_TYPE, "text/html")
             .body(form)),
+        Err(e @ Error::IdentityProviderNotFound(_)) => {
+            tracing::info!("Identity provider not found: {}", e);
+            Ok(http::Response::builder().status(404).body("".into()))
+        }
+        Err(e @ Error::ServiceProviderNotFound(_, _)) => {
+            tracing::info!("Service provider not found: {}", e);
+            Ok(http::Response::builder().status(404).body("".into()))
+        }
         Err(e) => {
             tracing::error!("Failed to perform login: {}", e);
             Ok(http::Response::builder().status(500).body("".into()))

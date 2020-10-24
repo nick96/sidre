@@ -163,6 +163,7 @@ async fn upsert_sp_metadata(
     // TODO-correctness: Retrieve all the keys, not just the first, and store metadata such as "use".
     let b64_sp_cert = dig_certificate(&metadata)?;
 
+    // TODO-correctness: Actually upsert SP.
     create_service_provider(
         db,
         idp_id,

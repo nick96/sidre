@@ -46,8 +46,13 @@ impl IdP {
             entity_id: Some(self.entity_id.clone()),
             valid_until: Some(self.metadata_valid_until),
             idp_sso_descriptors: Some(vec![IdpSsoDescriptor {
+                // TODO-config: Allow specifying the name ID formats to advertise.
                 name_id_formats: vec![NameIdFormat::EmailAddressNameIDFormat.value().to_string()],
                 single_sign_on_services: vec![Endpoint {
+                    // Hard code HTTP-POST binding as that's the most common. Re-evaluate this
+                    // if support for the others is needed in future. See here for the different
+                    // types of binding:
+                    // https://en.wikipedia.org/wiki/SAML_2.0#SAML_2.0_bindings
                     binding: HTTP_POST_BINDING.to_string(),
                     location: self.redirect_url.clone(),
                     response_location: None,
