@@ -15,7 +15,7 @@ pub use attribute_consuming_service::AttributeConsumingService;
 pub use contact_person::*;
 pub use encryption_method::EncryptionMethod;
 pub use endpoint::*;
-pub use entity_descriptor::EntityDescriptor;
+pub use entity_descriptor::{EntityDescriptor, Error};
 pub use key_descriptor::KeyDescriptor;
 pub use localized::*;
 pub use organization::Organization;
@@ -116,7 +116,7 @@ pub struct SSODescriptor {
     pub name_id_formats: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
 pub struct IdpSsoDescriptor {
     #[serde(rename = "ID")]
     pub id: Option<String>,

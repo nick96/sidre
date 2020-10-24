@@ -119,9 +119,9 @@ fn test_signed_response_threads() {
 
     let mut handles = vec![];
     for _ in 0..4 {
-        handles.push(std::thread::spawn(|| test_self_signed_authn_request()));
-        handles.push(std::thread::spawn(|| test_extract_sp()));
-        handles.push(std::thread::spawn(move || verify()));
+        handles.push(std::thread::spawn(test_self_signed_authn_request));
+        handles.push(std::thread::spawn(test_extract_sp));
+        handles.push(std::thread::spawn(verify));
     }
 
     handles

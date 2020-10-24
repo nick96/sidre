@@ -461,8 +461,7 @@ impl ServiceProvider {
 
     fn validate_destination(&self, response: &Response) -> Result<(), Error> {
         if (response.signature.is_some() || response.destination.is_some())
-            && response.destination.as_ref().map(String::as_str)
-                != self.acs_url.as_ref().map(String::as_str)
+            && response.destination.as_deref() != self.acs_url.as_deref()
         {
             return Err(Error::DestinationValidationError {
                 response_destination: response.destination.clone(),

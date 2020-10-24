@@ -56,11 +56,7 @@ impl Response {
     pub fn to_xml(&self) -> Result<String, Box<dyn std::error::Error>> {
         let mut write_buf = Vec::new();
         let mut writer = Writer::new(Cursor::new(&mut write_buf));
-        writer.write_event(Event::Decl(BytesDecl::new(
-            "1.0".as_bytes(),
-            Some("UTF-8".as_bytes()),
-            None,
-        )))?;
+        writer.write_event(Event::Decl(BytesDecl::new(b"1.0", Some(b"UTF-8"), None)))?;
 
         let mut root = BytesStart::borrowed(NAME.as_bytes(), NAME.len());
         root.push_attribute(SCHEMA);

@@ -172,7 +172,7 @@ fn build_response(
     let response_id = crypto::gen_saml_response_id();
 
     Response {
-        id: response_id.clone(),
+        id: response_id,
         in_response_to: Some(request_id.to_owned()),
         version: "2.0".to_string(),
         issue_instant: Utc::now(),
