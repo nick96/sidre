@@ -1,19 +1,12 @@
-use crate::{
-    error::Error,
-    identity_provider::IdP,
-    service_provider::SP,
-    templates::{Assertion, LoginForm, NameIDFormat, Response},
-};
+use crate::{error::Error, identity_provider::IdP, service_provider::SP, templates::LoginForm};
 use askama::Template;
-use chrono::{Duration, Utc};
 use flate2::read::DeflateDecoder;
-use openssl::{hash::hash, hash::MessageDigest, pkey::PKey, sign::Signer};
 use rand::Rng;
-use roxmltree::Document;
+use samael::idp::{verified_request::UnverifiedAuthnRequest, IdentityProvider};
+use samael::metadata::NameIdFormat;
 use serde::Deserialize;
 use sqlx::PgPool;
 use std::io::Read;
-use std::str::FromStr;
 use warp::{http, Rejection, Reply};
 
 #[derive(Deserialize, Debug)]
@@ -31,56 +24,18 @@ fn random_string(len: usize) -> String {
         .collect()
 }
 
-fn random_name_id(format: NameIDFormat) -> String {
+fn random_name_id(format: NameIdFormat) -> String {
     match format {
-        NameIDFormat::EmailAddress => {
+        NameIdFormat::EmailAddressNameIDFormat => {
             let username = random_string(6);
             let domain = random_string(6);
             format!("{}@{}.local", username, domain)
         }
+        _ => unimplemented!(
+            "Random generation of name ID format {} is not implemeneted",
+            format.value()
+        ),
     }
-}
-
-fn digest_assertion(assertion: Assertion) -> Result<Vec<u8>, Error> {
-    Ok(
-        hash(MessageDigest::sha256(), assertion.render()?.as_bytes())?
-            .as_ref()
-            .to_vec(),
-    )
-}
-
-fn sign_digest(private_key: Vec<u8>, digest: &[u8]) -> Result<Vec<u8>, Error> {
-    let pk = PKey::private_key_from_der(&private_key)?;
-    let mut signer = Signer::new(MessageDigest::sha256(), &pk)?;
-    signer.update(digest)?;
-    Ok(signer.sign_to_vec()?)
-}
-
-fn generate_saml_response(request_id: String, idp: &IdP, sp: &SP) -> Result<String, Error> {
-    let now = Utc::now();
-    let name_id_format = NameIDFormat::from_str(&idp.name_id_format)?;
-    let mut response = Response {
-        authn_request_id: request_id,
-        assertion_id: random_string(15),
-        issue_instant: Utc::now(),
-        issuer: idp.entity_id.clone(),
-        name_id_format: name_id_format.clone(),
-        name_id: random_name_id(name_id_format),
-        response_id: random_string(15),
-        consume_endpoint: sp.consume_endpoint.clone(),
-        certificate: base64::encode(idp.certificate.clone()),
-        not_before: now,
-        not_on_or_after: now + Duration::minutes(5),
-        sp_entity_id: sp.entity_id.clone(),
-        assertion_digest: "".into(),
-        assertion_digest_signature: "".into(),
-    };
-    let assertion = Assertion::from(response.clone());
-    let digest = digest_assertion(assertion)?;
-    response.assertion_digest = base64::encode(&digest);
-    let signature = sign_digest(idp.private_key.clone(), &digest)?;
-    response.assertion_digest_signature = base64::encode(signature);
-    Ok(response.render()?)
 }
 
 #[tracing::instrument(level = "info", skip(db, saml_request, relay_state, id))]
@@ -101,27 +56,13 @@ async fn run_login(
 
     tracing::debug!("Inflated SAML request: {}", buf);
 
-    let doc = Document::parse(&buf)?;
-    if !doc.root_element().has_tag_name("AuthnRequest") {
-        tracing::info!(
-            "Expected AuthnRequest document, received {}",
-            doc.root_element().tag_name().name()
-        );
-        return Err(Error::ExpectedAuthnRequestError);
-    }
-
-    // Entity ID of the SP that sent us the request.
-    let issuer = doc
-        .descendants()
-        .find_map(|n| {
-            if n.tag_name().name() == "Issuer" {
-                n.text()
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| Error::MissingField("Issuer".into()))?;
-
+    let unverified_request = UnverifiedAuthnRequest::from_xml(&buf)?;
+    let unverified_authn_request = unverified_request.request.clone();
+    let issuer = unverified_authn_request
+        .issuer
+        .ok_or_else(|| Error::MissingAuthnRequestIssuer)?
+        .value
+        .ok_or_else(|| Error::MissingAuthnRequestIssuer)?;
     // Clone the ID here so we can use it when getting the SP as well.
     let idp_id = id.clone();
     let idp: IdP = sqlx::query_as!(
@@ -151,10 +92,12 @@ async fn run_login(
     })?;
 
     let sp: SP = sqlx::query_as("SELECT * FROM sps WHERE entity_id = $1")
-        .bind(issuer)
+        .bind(issuer.clone())
         .fetch_one(db)
         .await
         .map_err(|e: sqlx::Error| match e {
+            // We want to differentiate between no SP with the given ID not existing and other errors. Because not existing is a 404
+            // but other errors are 5xx.
             sqlx::Error::RowNotFound => {
                 tracing::info!(
                     "No service provider with entity ID {} for IdP {} found",
@@ -173,11 +116,29 @@ async fn run_login(
                 e.into()
             }
         })?;
-    let response = generate_saml_response("".into(), &idp, &sp)?;
-    tracing::debug!("SAML assertion: {}", response);
+    // TODO-correctness: Get all the keys associated with the SP and try them all.
+    let sp_key = sqlx::query!("SELECT * FROM sp_keys WHERE sp_id = $1", sp.id)
+        .fetch_one(db)
+        .await?;
+    let verified_request = unverified_request.try_verify_with_cert(&sp_key.key)?;
+    let identity_provider = IdentityProvider::from_private_key_der(&idp.private_key)?;
+    let response = identity_provider.sign_authn_response(
+        &idp.certificate,
+        // TODO-config: Allow more control over who the assertion is for.
+        // TODO-config: Handle more than just email address for name ID format.
+        &random_name_id(NameIdFormat::EmailAddressNameIDFormat),
+        "audience",
+        "acs_url",
+        "issuer",
+        &verified_request.id,
+        // TODO-config: Allow specifying the attributes to return.
+        &[],
+    )?;
+    let response_xml = response.to_xml()?;
+    tracing::debug!("SAML assertion: {}", response_xml);
     Ok(LoginForm {
         sp_consume_endpoint: sp.consume_endpoint,
-        saml_response: base64::encode(response),
+        saml_response: base64::encode(response_xml),
         relay_state,
     }
     .render()?)

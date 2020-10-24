@@ -1,12 +1,18 @@
-use crate::{
-    error::Error,
-    templates::{Metadata, NameIDFormat, Template},
-    x509::generate_cert,
+use crate::error::Error;
+use chrono::{DateTime, Duration, Utc};
+use samael::{
+    idp::{CertificateParams, IdentityProvider, KeyType},
+    key_info::{KeyInfo, X509Data},
+    metadata::{
+        Endpoint, EntityDescriptor, IdpSsoDescriptor, KeyDescriptor, NameIdFormat,
+        HTTP_POST_BINDING,
+    },
 };
-use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
-use std::str::FromStr;
 use warp::{http::Response, Rejection, Reply};
+
+// Nothing in particular, 1000 just seems long enough to not be a pain in dev.
+const CERT_EXPIRY_IN_DAYS: u32 = 1000;
 
 pub struct IdP {
     pub id: String,
@@ -16,6 +22,37 @@ pub struct IdP {
     pub certificate: Vec<u8>,
     pub name_id_format: String,
     pub redirect_url: String,
+}
+
+impl IdP {
+    pub fn metadata(&self) -> EntityDescriptor {
+        EntityDescriptor {
+            entity_id: Some(self.entity_id.clone()),
+            valid_until: Some(self.metadata_valid_until),
+            idp_sso_descriptors: Some(vec![IdpSsoDescriptor {
+                name_id_formats: vec![NameIdFormat::EmailAddressNameIDFormat.value().to_string()],
+                single_sign_on_services: vec![Endpoint {
+                    binding: HTTP_POST_BINDING.to_string(),
+                    location: self.redirect_url.clone(),
+                    response_location: None,
+                }],
+                key_descriptors: vec![KeyDescriptor {
+                    key_use: Some("signing".to_string()),
+                    key_info: KeyInfo {
+                        id: None,
+                        x509_data: Some(X509Data {
+                            certificate: Some(base64::encode(self.certificate.clone())),
+                        }),
+                    },
+                    encryption_methods: None,
+                }],
+                // TODO-config: Allow configuring IdP to want signed request.
+                want_authn_requests_signed: Some(false),
+                ..IdpSsoDescriptor::default()
+            }]),
+            ..EntityDescriptor::default()
+        }
+    }
 }
 
 #[tracing::instrument(level = "info", skip(db))]
@@ -41,10 +78,20 @@ pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP,
             Ok(idp)
         }
         Err(sqlx::Error::RowNotFound) => {
-            let (certificate, private_key, metadata_valid_until) = generate_cert()?;
+            // TODO-config: Allow specifying the key type. Currently Samael only allows RSA keys. Does it make sense to allow Ed25519 as well?
+            let idp = IdentityProvider::generate_new(KeyType::Rsa4096)?;
             let entity_id = format!("https://{}/{}", host, id);
-            let name_id_format = NameIDFormat::EmailAddress;
+
+            let certificate_der = idp.create_certificate(&CertificateParams {
+                common_name: &format!("{} (sidre)", id),
+                issuer_name: &entity_id,
+                days_until_expiration: CERT_EXPIRY_IN_DAYS,
+            })?;
+            let private_key = idp.export_private_key_der()?;
+            // TODO-config: Add a knob for the name ID format (email address and persistent ID are probably the most important).
+            let name_id_format = NameIdFormat::EmailAddressNameIDFormat.value();
             let redirect_url = format!("https://{}/{}/sso", host, id);
+            let metadata_valid_until = Utc::now() + Duration::days(CERT_EXPIRY_IN_DAYS as i64);
 
             sqlx::query!(
                 r#"
@@ -62,11 +109,11 @@ pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP,
                 )
                 "#,
                 id,
-                certificate.to_der()?,
+                certificate_der,
                 private_key,
                 entity_id,
                 metadata_valid_until,
-                name_id_format.to_string(),
+                name_id_format,
                 redirect_url
             )
             .execute(db)
@@ -77,7 +124,7 @@ pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP,
             Ok(IdP {
                 id: id.into(),
                 private_key,
-                certificate: certificate.to_der()?,
+                certificate: certificate_der,
                 entity_id,
                 metadata_valid_until,
                 name_id_format: name_id_format.to_string(),
@@ -95,24 +142,18 @@ pub async fn get_idp_metadata_handler(
     db: PgPool,
 ) -> Result<impl Reply, Rejection> {
     match ensure_idp(&db, &id, &host).await {
-        Ok(idp) => {
-            let metadata = Metadata {
-                entity_id: idp.entity_id,
-                valid_until: idp.metadata_valid_until,
-                certificate: base64::encode(idp.certificate),
-                // This has come from the database so we expect it to be valid.
-                name_id_format: NameIDFormat::from_str(&idp.name_id_format)
-                    .expect("Received invalid name ID from the database"),
-                redirect_url: idp.redirect_url,
-            };
-
-            Ok(Response::builder()
+        Ok(idp) => match idp.metadata().to_xml() {
+            Ok(metadata) => Ok(Response::builder()
                 .header(warp::http::header::CONTENT_TYPE, "application/xml")
-                .body(metadata.render().unwrap()))
-        }
+                .body(metadata)),
+            Err(e) => {
+                tracing::error!("Failed to convert metadata to XML: {}", e);
+                Ok(Response::builder().status(500).body("".to_string()))
+            }
+        },
         Err(e) => {
-            tracing::error!("Failed to generate certificate: {}", e);
-            Ok(Response::builder().status(500).body("".into()))
+            tracing::error!("Failed to ensure IdP: {}", e);
+            Ok(Response::builder().status(500).body("".to_string()))
         }
     }
 }

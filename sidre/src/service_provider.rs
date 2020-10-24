@@ -1,6 +1,6 @@
-use crate::{error::Error, identity_provider::ensure_idp, templates::NameIDFormat};
+use crate::{error::Error, identity_provider::ensure_idp};
 use bytes::{Buf, Bytes};
-use roxmltree::Document;
+use samael::metadata::EntityDescriptor;
 use sqlx::postgres::PgPool;
 use std::str::FromStr;
 use warp::{http::Response, Rejection, Reply};
@@ -15,7 +15,7 @@ pub struct SP {
     pub keys: Vec<Vec<u8>>,
 }
 
-#[tracing::instrument(level = "info", skip(db, keys), err)]
+#[tracing::instrument(level = "info", skip(db, certificates), err)]
 async fn create_service_provider(
     db: &PgPool,
     idp_id: &str,
@@ -23,7 +23,7 @@ async fn create_service_provider(
     entity_id: &str,
     name_id_format: &str,
     consume_endpoint: &str,
-    keys: Vec<&str>,
+    certificates: Vec<&str>,
 ) -> Result<(), Error> {
     let mut tx = db.begin().await?;
     ensure_idp(
@@ -42,7 +42,7 @@ async fn create_service_provider(
     .execute(&mut tx)
     .await?;
 
-    for key in keys {
+    for key in certificates {
         let der_key = base64::decode(key)?;
         sqlx::query!(
             r#"INSERT INTO sp_keys(sp_id, key) VALUES ($1, $2)"#,
@@ -66,6 +66,74 @@ async fn create_service_provider(
     Ok(())
 }
 
+fn dig_name_id_format(metadata: &EntityDescriptor) -> Result<String, Error> {
+    let descriptors = metadata
+        .to_owned()
+        .sp_sso_descriptors
+        .ok_or_else(|| Error::MissingField("NameIDFormat".to_string()))?;
+    let descriptor = descriptors
+        .first()
+        .ok_or_else(|| Error::MissingField("NameIDFormat".to_string()))?
+        .to_owned();
+    let name_id_formats = descriptor
+        .name_id_formats
+        .ok_or_else(|| Error::MissingField("NameIDFormat".to_string()))?;
+    let name_id_format = name_id_formats
+        .first()
+        .ok_or_else(|| Error::MissingField("NameIDFormat".to_string()))?;
+    Ok(name_id_format.to_owned())
+}
+
+fn dig_consume_endpoint(metadata: &EntityDescriptor) -> Result<String, Error> {
+    let descriptors = metadata
+        .to_owned()
+        .sp_sso_descriptors
+        .ok_or_else(|| Error::MissingField("AssertionConsumerService".to_string()))?;
+    let descriptor = descriptors
+        .first()
+        .ok_or_else(|| Error::MissingField("AssertionConsumerService".to_string()))?;
+    let asc = descriptor
+        .assertion_consumer_services
+        .first()
+        .ok_or_else(|| Error::MissingField("AssertionConsumerService".to_string()))?
+        .to_owned();
+    // TODO-correctness: Associate the binding as well. At the moment we're just assuming HTTP-POST.
+    asc.response_location
+        .ok_or_else(|| Error::MissingField("AssertionConsumerService".to_string()))
+}
+
+fn dig_certificate(metadata: &EntityDescriptor) -> Result<String, Error> {
+    let descriptors = metadata
+        .to_owned()
+        .sp_sso_descriptors
+        .ok_or_else(|| Error::MissingField("KeyInfo".to_string()))?;
+    let descriptor = descriptors
+        .first()
+        .ok_or_else(|| Error::MissingField("KeyInfo".to_string()))?
+        .to_owned();
+    let key_descriptors = descriptor
+        .key_descriptors
+        .ok_or_else(|| Error::MissingField("KeyInfo".to_string()))?;
+    let key_descriptor = key_descriptors
+        .first()
+        .ok_or_else(|| Error::MissingField("KeyInfo".to_string()))?
+        .to_owned();
+    let cert_data = key_descriptor
+        .key_info
+        .x509_data
+        .ok_or_else(|| Error::MissingField("X509Data".to_string()))?;
+    cert_data
+        .certificate
+        .ok_or_else(|| Error::MissingField("Certificate".to_string()))
+}
+
+fn dig_entity_id(metadata: &EntityDescriptor) -> Result<String, Error> {
+    metadata
+        .to_owned()
+        .entity_id
+        .ok_or_else(|| Error::MissingField("entityID".to_string()))
+}
+
 #[tracing::instrument(level = "info", skip(db, body))]
 async fn upsert_sp_metadata(
     idp_id: &str,
@@ -73,66 +141,23 @@ async fn upsert_sp_metadata(
     db: &PgPool,
     body: Bytes,
 ) -> Result<(), Error> {
-    let doc = Document::parse(std::str::from_utf8(body.bytes())?)?;
-    let entity_id = doc
-        .descendants()
-        .find_map(|n| {
-            if n.tag_name().name() == "EntityDescriptor" {
-                n.attribute("entityID")
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| Error::MissingField("EntityDescriptor".into()))?;
-    let name_id_format = doc
-        .descendants()
-        .find_map(|n| {
-            if n.tag_name().name() == "NameIDFormat" {
-                n.text()
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| Error::MissingField("NameIDFormat".into()))?;
-
-    if let Err(e) = NameIDFormat::from_str(name_id_format) {
-        tracing::info!("Invalid name ID format: {}", e);
-        return Err(Error::InvalidField(
-            "NameIDFormat".into(),
-            name_id_format.into(),
-        ));
-    }
-
-    let consume_endpoint = doc
-        .descendants()
-        .find_map(|n| {
-            if n.tag_name().name() == "AssertionConsumerService" {
-                n.attribute("Location")
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| Error::MissingField("AssertionConsumerService".into()))?;
-
-    let keys = doc
-        .descendants()
-        .filter_map(|n| {
-            if n.tag_name().name() == "KeyInfo" {
-                n.text()
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<&str>>();
+    let metadata = EntityDescriptor::from_str(std::str::from_utf8(body.bytes())?)?;
+    let entity_id = dig_entity_id(&metadata)?;
+    // TODO-correctness: Store all the different name ID formats for the different descriptors.
+    let name_id_format = dig_name_id_format(&metadata)?;
+    // TODO-correctness: Store all the different consumer service endpoints for the different descriptors.
+    let consume_endpoint = dig_consume_endpoint(&metadata)?;
+    // TODO-correctness: Retrieve all the keys, not just the first, and store metadata such as "use".
+    let b64_sp_cert = dig_certificate(&metadata)?;
 
     create_service_provider(
         db,
         idp_id,
         sp_id,
-        entity_id,
-        name_id_format,
-        consume_endpoint,
-        keys,
+        &entity_id,
+        &name_id_format,
+        &consume_endpoint,
+        vec![&b64_sp_cert],
     )
     .await?;
 
@@ -148,16 +173,12 @@ pub async fn upsert_sp_metadata_handler(
 ) -> Result<impl Reply, Rejection> {
     match upsert_sp_metadata(&idp_id, &sp_id, &db, body).await {
         Ok(()) => Ok(Response::builder().status(201).body("")),
-        Err(err @ Error::XmlError(_)) => {
+        Err(err @ Error::SamaelEntityDescriptorError(_)) => {
             tracing::debug!("Received invalid XML doc for SP metadata: {}", err);
             Ok(Response::builder().status(400).body(""))
         }
         Err(err @ Error::MissingField(_)) => {
             tracing::debug!("Received SP metadata with missing field: {}", err);
-            Ok(Response::builder().status(400).body(""))
-        }
-        Err(err @ Error::InvalidField(_, _)) => {
-            tracing::debug!("Received invalid field in SP metadata: {}", err);
             Ok(Response::builder().status(400).body(""))
         }
         Err(e) => {

@@ -5,7 +5,6 @@ mod identity_provider;
 mod login;
 mod service_provider;
 mod templates;
-mod x509;
 
 use crate::{
     config::{idp_config_handler, idp_sp_config_handler},
