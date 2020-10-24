@@ -69,6 +69,8 @@ pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clo
         .with(warp::trace::request())
 }
 
+// These tests are intended to make sure the routing is correct and the general high level logic is correct.
+// More fine grained stuff should be saved for the unit tests.
 #[cfg(test)]
 mod test {
     use super::*;
@@ -124,12 +126,12 @@ mod test {
 
     #[tokio::test]
     async fn test_register_sp() {
-        // TODO: Test util to build SP metadata
+        // TODO-test: Test util to build SP metadata
     }
 
     #[tokio::test]
     async fn test_sp_login() {
-        // TODO: Test util to build authn request
+        // TODO-test: Test util to build authn request
     }
 
     #[tokio::test]
@@ -140,6 +142,7 @@ mod test {
         let filter = app().await;
         let resp = warp::test::request()
             .path(&format!("/{}/config", idp_id))
+            .method("POST")
             .reply(&filter)
             .await;
         assert_eq!(resp.status(), 200);
@@ -152,6 +155,7 @@ mod test {
         let filter = app().await;
         let resp = warp::test::request()
             .path(&format!("/{}/{}/config", idp_id, sp_id))
+            .method("POST")
             .reply(&filter)
             .await;
         assert_eq!(resp.status(), 200);
