@@ -14,8 +14,6 @@ pub enum Error {
     TemplateError(#[from] askama::Error),
     #[error("Database error: {0}")]
     DatabaseError(#[from] sqlx::Error),
-    #[error("Invalid name ID {0}")]
-    InvalidNameID(String),
     #[error("Missing field {0}")]
     MissingField(String),
     #[error("Text is not valid UTF8: {0}")]
