@@ -98,18 +98,17 @@ fn dig_consume_endpoint(metadata: &EntityDescriptor) -> Result<String, Error> {
     let descriptors = metadata
         .to_owned()
         .sp_sso_descriptors
-        .ok_or_else(|| Error::MissingField("AssertionConsumerService".to_string()))?;
+        .ok_or_else(|| Error::MissingField("SPSSODescriptor".to_string()))?;
     let descriptor = descriptors
         .first()
-        .ok_or_else(|| Error::MissingField("AssertionConsumerService".to_string()))?;
+        .ok_or_else(|| Error::MissingField("SPSSODescriptor".to_string()))?;
     let asc = descriptor
         .assertion_consumer_services
         .first()
         .ok_or_else(|| Error::MissingField("AssertionConsumerService".to_string()))?
         .to_owned();
     // TODO-correctness: Associate the binding as well. At the moment we're just assuming HTTP-POST.
-    asc.response_location
-        .ok_or_else(|| Error::MissingField("AssertionConsumerService".to_string()))
+    Ok(asc.location)
 }
 
 fn dig_certificate(metadata: &EntityDescriptor) -> Result<String, Error> {
@@ -194,15 +193,15 @@ pub async fn upsert_sp_metadata_handler(
     match upsert_sp_metadata(&idp_id, &sp_id, &db, body).await {
         Ok(()) => Ok(Response::builder().status(201).body("")),
         Err(err @ Error::SamaelEntityDescriptorError(_)) => {
-            tracing::debug!("Received invalid XML doc for SP metadata: {}", err);
+            tracing::warn!("Received invalid XML doc for SP metadata: {}", err);
             Ok(Response::builder().status(400).body(""))
         }
         Err(err @ Error::MissingField(_)) => {
-            tracing::debug!("Received SP metadata with missing field: {}", err);
+            tracing::warn!("Received SP metadata with missing field: {}", err);
             Ok(Response::builder().status(400).body(""))
         }
         Err(e) => {
-            tracing::debug!("Upserting SP metadata failed: {}", e);
+            tracing::error!("Upserting SP metadata failed: {}", e);
             Ok(Response::builder().status(500).body(""))
         }
     }

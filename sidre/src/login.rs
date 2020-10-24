@@ -48,6 +48,25 @@ fn random_name_id(format: NameIdFormat) -> String {
     }
 }
 
+#[tracing::instrument(level = "info", skip(request))]
+fn deflate_request(request: String) -> Result<String, Error> {
+    let deflated_request = base64::decode(request)?;
+    let mut deflater = DeflateDecoder::new(&deflated_request[..]);
+    let mut buf = String::new();
+    deflater.read_to_string(&mut buf)?;
+    Ok(buf)
+}
+
+fn dig_issuer(request: &UnverifiedAuthnRequest) -> Result<String, Error> {
+    request
+        .request
+        .clone()
+        .issuer
+        .ok_or_else(|| Error::MissingAuthnRequestIssuer)?
+        .value
+        .ok_or_else(|| Error::MissingAuthnRequestIssuer)
+}
+
 #[tracing::instrument(level = "info", skip(db, saml_request, relay_state, id))]
 async fn run_login(
     id: String,
@@ -59,20 +78,11 @@ async fn run_login(
     tracing::debug!("Relay state: {:?}", relay_state);
     tracing::debug!("Encoded SAML request: {}", saml_request);
 
-    let deflated_request = base64::decode(saml_request)?;
-    let mut deflater = DeflateDecoder::new(&deflated_request[..]);
-    let mut buf = String::new();
-    deflater.read_to_string(&mut buf)?;
-
+    let buf = deflate_request(saml_request)?;
     tracing::debug!("Inflated SAML request: {}", buf);
 
     let unverified_request = UnverifiedAuthnRequest::from_xml(&buf)?;
-    let unverified_authn_request = unverified_request.request.clone();
-    let issuer = unverified_authn_request
-        .issuer
-        .ok_or_else(|| Error::MissingAuthnRequestIssuer)?
-        .value
-        .ok_or_else(|| Error::MissingAuthnRequestIssuer)?;
+    let issuer = dig_issuer(&unverified_request)?;
     // Clone the ID here so we can use it when getting the SP as well.
     let idp_id = id.clone();
     let idp: IdP = sqlx::query_as!(
@@ -127,10 +137,11 @@ async fn run_login(
             }
         })?;
     // TODO-correctness: Get all the keys associated with the SP and try them all.
-    let sp_key = sqlx::query!("SELECT * FROM sp_keys WHERE sp_id = $1", sp.id)
-        .fetch_one(db)
-        .await?;
-    let verified_request = unverified_request.try_verify_with_cert(&sp_key.key)?;
+    // let sp_key = sqlx::query!("SELECT * FROM sp_keys WHERE sp_id = $1", sp.id)
+    //     .fetch_one(db)
+    //     .await?;
+    // TODO-config: Allow configuring whether or not the request should be signed.
+    // let verified_request = unverified_request.try_verify_with_cert(&sp_key.key)?;
     let identity_provider = IdentityProvider::from_private_key_der(&idp.private_key)?;
     let response = identity_provider.sign_authn_response(
         &idp.certificate,
@@ -141,7 +152,7 @@ async fn run_login(
         &sp.entity_id,
         &sp.consume_endpoint,
         &idp.entity_id,
-        &verified_request.id,
+        &unverified_request.request.id,
         // TODO-config: Allow specifying the attributes to return.
         &[],
     )?;
