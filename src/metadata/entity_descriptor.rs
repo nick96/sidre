@@ -102,7 +102,6 @@ impl EntityDescriptor {
         if let Some(organization) = &self.organization {
             writer.write(organization.to_xml()?.as_bytes())?;
         }
-
         if let Some(contact_persons) = &self.contact_person {
             for contact_person in contact_persons {
                 writer.write(contact_person.to_xml()?.as_bytes())?;
