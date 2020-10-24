@@ -1,5 +1,9 @@
 use thiserror::Error;
 
+/// Errors used within the app.
+///
+/// The names should be pretty self explanatory. It might be worth looking at breaking this down
+/// into per app component errors as it's getting pretty large.
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Failed to decode base64: {0}")]
@@ -8,16 +12,12 @@ pub enum Error {
     DeflateDecodeError(#[from] std::io::Error),
     #[error("Failed to render template: {0}")]
     TemplateError(#[from] askama::Error),
-    // #[error("Expected AuthnRequest")]
-    // ExpectedAuthnRequestError,
     #[error("Database error: {0}")]
     DatabaseError(#[from] sqlx::Error),
     #[error("Invalid name ID {0}")]
     InvalidNameID(String),
     #[error("Missing field {0}")]
     MissingField(String),
-    // #[error("Invalid field {0} with value {1}")]
-    // InvalidField(String, String),
     #[error("Text is not valid UTF8: {0}")]
     InvalidUtf8(#[from] std::str::Utf8Error),
     #[error("No SP with entity ID {1} found for IdP {0}")]

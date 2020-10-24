@@ -4,7 +4,6 @@ mod error;
 mod identity_provider;
 mod login;
 mod service_provider;
-mod templates;
 
 use crate::{
     config::{idp_config_handler, idp_sp_config_handler},
@@ -16,6 +15,12 @@ use crate::{
 use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{Filter, Rejection, Reply};
 
+/// Return a warp app with everything wired up.
+///
+/// This will setup:
+///     - Logging and tracing
+///     - Database pool injection
+///     - Routing
 #[tracing::instrument(level = "info")]
 pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     let filter =

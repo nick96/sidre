@@ -14,17 +14,33 @@ use warp::{http::Response, Rejection, Reply};
 // Nothing in particular, 1000 just seems long enough to not be a pain in dev.
 const CERT_EXPIRY_IN_DAYS: u32 = 1000;
 
+/// Representation of a row in the `idps` table in the database.
 pub struct IdP {
+    /// Unique ID for the IdP. This is what is used to reference it in the URL.
     pub id: String,
+    /// Private key used to sign the assertion. In DER format.
     pub private_key: Vec<u8>,
+    /// Entitu ID for the IdP.
     pub entity_id: String,
+    /// Date until the metadata is valid. This is stored when the IdP is first
+    /// created by the ensure endpoint and used with subsequent requests to make
+    /// the endpoint idempotent.
     pub metadata_valid_until: DateTime<Utc>,
+    /// Certificate from the `private_key` so that service providers may verify
+    /// assertions.
     pub certificate: Vec<u8>,
+    /// Name ID format for the IdP. I'm not sure what the difference between
+    /// this and the one requested in the AuthnRequest. I think it may be that
+    /// this is used for IdPs to assert which name IDs they can handle then the
+    /// servide provider can request the ones they can handle and we shoe the
+    /// intersect.
     pub name_id_format: String,
+    /// URL to send AuthnRequests to.
     pub redirect_url: String,
 }
 
 impl IdP {
+    /// Build the [EntityDescriptor] for the [IdP].
     pub fn metadata(&self) -> EntityDescriptor {
         EntityDescriptor {
             entity_id: Some(self.entity_id.clone()),
@@ -55,6 +71,11 @@ impl IdP {
     }
 }
 
+/// Ensure the IdP identified by `id` exists and return it.
+///
+/// If an IdP with `id` already exists, just get it. Otherwise, construct the
+/// required parts (e.g. certificate), insert them in the database, and return
+/// the identity provider.
 #[tracing::instrument(level = "info", skip(db))]
 pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP, Error> {
     match sqlx::query_as!(
@@ -135,6 +156,12 @@ pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP,
     }
 }
 
+/// Handle getting the IdP's metdata.
+///
+/// This is the handler for the endpoint that client's GET to retrieve an IdP's
+/// metadata. The IdP will be created if it doesn't already exists and the
+/// metadata returned. This handler is idempotent in that subsequent requests
+/// will return the same metadata.
 #[tracing::instrument(level = "info", skip(db))]
 pub async fn get_idp_metadata_handler(
     id: String,

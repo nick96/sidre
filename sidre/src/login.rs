@@ -1,13 +1,23 @@
-use crate::{error::Error, identity_provider::IdP, service_provider::SP, templates::LoginForm};
+use crate::{error::Error, identity_provider::IdP, service_provider::ServideProviderRow};
 use askama::Template;
 use flate2::read::DeflateDecoder;
 use rand::Rng;
-use samael::idp::{verified_request::UnverifiedAuthnRequest, IdentityProvider};
-use samael::metadata::NameIdFormat;
+use samael::{
+    idp::{verified_request::UnverifiedAuthnRequest, IdentityProvider},
+    metadata::NameIdFormat,
+};
 use serde::Deserialize;
 use sqlx::PgPool;
 use std::io::Read;
 use warp::{http, Rejection, Reply};
+
+#[derive(Template)]
+#[template(path = "form.html")]
+pub struct LoginForm {
+    pub sp_consume_endpoint: String,
+    pub saml_response: String,
+    pub relay_state: Option<String>,
+}
 
 #[derive(Deserialize, Debug)]
 pub struct LoginRequestParams {
@@ -91,7 +101,7 @@ async fn run_login(
         }
     })?;
 
-    let sp: SP = sqlx::query_as("SELECT * FROM sps WHERE entity_id = $1")
+    let sp: ServideProviderRow = sqlx::query_as("SELECT * FROM sps WHERE entity_id = $1")
         .bind(issuer.clone())
         .fetch_one(db)
         .await
@@ -127,9 +137,10 @@ async fn run_login(
         // TODO-config: Allow more control over who the assertion is for.
         // TODO-config: Handle more than just email address for name ID format.
         &random_name_id(NameIdFormat::EmailAddressNameIDFormat),
-        "audience",
-        "acs_url",
-        "issuer",
+        // TODO-correctness: What should this be? Is the SP's entity ID correct.
+        &sp.entity_id,
+        &sp.consume_endpoint,
+        &idp.entity_id,
         &verified_request.id,
         // TODO-config: Allow specifying the attributes to return.
         &[],
@@ -144,6 +155,17 @@ async fn run_login(
     .render()?)
 }
 
+/// Handle login.
+///
+/// This is the handler of the endpoint that service providers will redirect
+/// users to on login. As `sidre` is intended for use in testing, there is no
+/// actual authentication, the user is just redirect back to the service provider
+/// with a SAML assertion.
+///
+/// The redirection is done via a form (templated from [templates/form.html](templates/form.html))
+/// which submits a form containing the SAML response and the  relay state (optional)
+/// to the service provider's assertion consumer service (usually just a specific)
+/// endpoint of the app.
 #[tracing::instrument(level = "info", skip(db, query))]
 pub async fn login_handler(
     id: String,

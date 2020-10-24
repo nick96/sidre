@@ -5,16 +5,26 @@ use sqlx::postgres::PgPool;
 use std::str::FromStr;
 use warp::{http::Response, Rejection, Reply};
 
+/// Row in the `sps` table.
 #[derive(sqlx::FromRow)]
-pub struct SP {
+pub struct ServideProviderRow {
+    /// ID uniquely identifying the servide provider. This is what is used to
+    /// reference the SP in the URL.
     pub id: String,
+    /// Entity ID used in the metadata.
     pub entity_id: String,
+    /// Name ID format the service provider expects.
     pub name_id_format: String,
+    /// Endpoint to send the assertion to. Currently it's assumed to be a HTTP
+    /// POST endpoint but future configuration options may allow for more.
     pub consume_endpoint: String,
+    /// Keys (certificates) associated with the service provider.
     #[sqlx(default)]
     pub keys: Vec<Vec<u8>>,
 }
 
+/// Create the servide provider from the specified attributes and link it to
+/// the identity provider identified by `idp_id`.
 #[tracing::instrument(level = "info", skip(db, certificates), err)]
 async fn create_service_provider(
     db: &PgPool,
@@ -134,6 +144,10 @@ fn dig_entity_id(metadata: &EntityDescriptor) -> Result<String, Error> {
         .ok_or_else(|| Error::MissingField("entityID".to_string()))
 }
 
+/// Upsert the servide provider metadata.
+///
+/// If the SP doesn't alreay exists it is created but if it does, then it is
+/// just updated.
 #[tracing::instrument(level = "info", skip(db, body))]
 async fn upsert_sp_metadata(
     idp_id: &str,
@@ -164,6 +178,12 @@ async fn upsert_sp_metadata(
     Ok(())
 }
 
+/// Handle upserting service provider metadata.
+///
+/// This is the handler for the endpoint that handles upserting the service
+/// provider metadata and linking it to the identity provider specified by
+/// `idp_id`. Currently the IdP must already exist but in the interest of making
+/// setup easy, it might be worth looking into ensuring the IdP exists here.
 #[tracing::instrument(level = "info", skip(db, body))]
 pub async fn upsert_sp_metadata_handler(
     idp_id: String,
