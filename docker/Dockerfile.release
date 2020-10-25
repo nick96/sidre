@@ -1,0 +1,63 @@
+# Base image with the deps for libxml and xmlsec installed. These are needed in both the builder
+# and release image.
+FROM debian:buster-slim AS base
+
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get -y install --no-install-recommends \
+        pkg-config libssl-dev build-essential xml-security-c-utils libxmlsec1-dev libclang-dev clang llvm libxml2-dev
+
+FROM base AS builder
+
+# Install rust. From https://github.com/rust-lang/docker-rust/blob/master/Dockerfile-slim.template.
+# I want to be able to share the libxml and xmlsec deps in the base image but the release image doesn't
+# need to have rust installed.
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH \
+    RUST_VERSION=1.47.0 \
+    RUSTUP_VERSION=1.22.1
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gcc \
+        libc6-dev \
+        wget \
+        ; \
+    url="https://raw.githubusercontent.com/rust-lang/rustup/$RUSTUP_VERSION/rustup-init.sh"; \
+    wget "$url"; \
+    chmod +x rustup-init.sh; \
+    ./rustup-init.sh -y --no-modify-path --profile minimal --default-toolchain $RUST_VERSION; \
+    rm rustup-init.sh; \
+    chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
+    rustup --version; \
+    cargo --version; \
+    rustc --version; \
+    apt-get remove -y --auto-remove \
+        wget \
+        ; \
+    rm -rf /var/lib/apt/lists/*;
+
+COPY . .
+
+RUN cargo build -p sidre --release
+
+FROM base AS release
+
+RUN apt-get update \
+    && apt-get install -y ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV TZ=Etc/UTC APP_USER=appuser
+
+RUN groupadd $APP_USER \
+    && useradd -g $APP_USER $APP_USER \
+    && mkdir -p ${APP}
+
+COPY --from=builder /sidre/target/release/sidre /app/sidre
+
+USER $APP_USER
+WORKDIR /app
+
+CMD ["./sidre"]
