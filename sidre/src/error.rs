@@ -32,4 +32,6 @@ pub enum Error {
     SamaelSPError(#[from] samael::service_provider::Error),
     #[error("Samael entity descriptor failure: {0}")]
     SamaelEntityDescriptorError(#[from] samael::metadata::Error),
+    #[error("Invalid name ID format: {0}")]
+    InvalidNameIdFormat(String),
 }

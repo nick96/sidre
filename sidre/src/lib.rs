@@ -6,7 +6,7 @@ mod login;
 mod service_provider;
 
 use crate::{
-    config::{idp_config_handler, idp_sp_config_handler},
+    config::{idp_config_handler, idp_sp_config_handler, IdentityProviderConfig},
     db::{create_db_pool, with_db},
     identity_provider::get_idp_metadata_handler,
     login::{login_handler, LoginRequestParams},
@@ -52,7 +52,7 @@ pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clo
     let login = warp::get().and(
         warp::path!(String / "sso")
             .and(warp::query::<LoginRequestParams>())
-            .and(with_db(db))
+            .and(with_db(db.clone()))
             .and_then(login_handler)
             .with(warp::trace::named("login")),
     );
@@ -60,6 +60,8 @@ pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clo
     let config = warp::post()
         .and(
             warp::path!(String / "config")
+                .and(with_db(db))
+                .and(warp::body::json::<IdentityProviderConfig>())
                 .and_then(idp_config_handler)
                 .with(warp::trace::named("config-idp")),
         )
