@@ -1,7 +1,12 @@
-target/
+/**/*/target
+.env
+.vscode/
+/target
 data/
 hooks/
 migrations/
 .env
 .gitignore
 test-service-proivder/
+docker-compose.yaml
+/docker
