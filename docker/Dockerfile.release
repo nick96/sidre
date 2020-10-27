@@ -19,6 +19,8 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     RUST_VERSION=nightly \
     RUSTUP_VERSION=1.22.1
 
+WORKDIR /app
+
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -57,7 +59,7 @@ RUN groupadd $APP_USER \
     && useradd -g $APP_USER $APP_USER \
     && mkdir -p /app
 
-COPY --from=builder /sidre/target/release/sidre /app/sidre
+COPY --from=builder /app/target/release/sidre /app/sidre
 
 USER $APP_USER
 WORKDIR /app
