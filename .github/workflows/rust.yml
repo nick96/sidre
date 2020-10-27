@@ -17,7 +17,7 @@ jobs:
     - name: Start aux services
       run: docker-compose up -d pg
     - name: Check sqlx data
-      run: docker-compose run --workdir=/workdspace/sidre sidre-test cargo sqlx prepare --check -- --bin sidre
+      run: docker-compose run --workdir=/workspace/sidre sidre-test cargo sqlx prepare --check -- --bin sidre
     - name: Check formatting
       run: docker-compose run sidre-test cargo +stable fmt -- --check
     - name: Clippy
