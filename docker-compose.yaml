@@ -20,6 +20,16 @@ services:
         environment:
             DATABASE_URL: "postgres://sidre:password@pg/sidre"
 
+    sidre-test:
+        build:
+            dockerfile: ../docker/Dockerfile.test
+            context: .
+        volumes:
+            - .:/workspace
+        command: cargo test --verbose
+        environment:
+            DATABASE_URL: "postgres://sidre:password@pg/sidre"
+
     test-service-provider:
         image: nick96/test-service-provider
         ports:
