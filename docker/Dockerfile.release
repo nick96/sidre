@@ -55,7 +55,7 @@ ENV TZ=Etc/UTC APP_USER=appuser
 
 RUN groupadd $APP_USER \
     && useradd -g $APP_USER $APP_USER \
-    && mkdir -p ${APP}
+    && mkdir -p /app
 
 COPY --from=builder /sidre/target/release/sidre /app/sidre
 
