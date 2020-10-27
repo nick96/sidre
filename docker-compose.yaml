@@ -22,7 +22,7 @@ services:
 
     sidre-test:
         build:
-            dockerfile: ../docker/Dockerfile.test
+            dockerfile: ./docker/Dockerfile.test
             context: .
         volumes:
             - .:/workspace
