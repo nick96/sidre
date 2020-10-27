@@ -4,7 +4,7 @@
 postgres_service='pg'
 
 # Check postgres is running.
-if [ -z "$(docker-compose ps -q $postgres_service)" ]
+if [ -z "$(docker-compose ps --filter "status=running" --services | grep $postgres_service)" ]
 then
     echo "$postgres_service not running. It needs to be up to run sqlx prepare."
     exit 1
