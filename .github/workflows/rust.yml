@@ -24,7 +24,7 @@ jobs:
       run: docker-compose run sidre-test cargo +stable fmt -- --check
     - name: Clippy (sidre)
       # Just run against sidre for now to minimise changes to samael.
-      run: docker-compose run sidre-test cargo clippy -p -- -D warnings
+      run: docker-compose run sidre-test cargo clippy -p sidre -- -D warnings
     - name: Run Test
       run: docker-compose run sidre-test cargo test --verbose
   release:
