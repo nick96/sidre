@@ -1,6 +1,7 @@
 mod config;
 mod db;
 mod error;
+mod generation;
 mod identity_provider;
 mod login;
 mod service_provider;

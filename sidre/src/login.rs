@@ -3,6 +3,8 @@ use askama::Template;
 use flate2::read::DeflateDecoder;
 use rand::Rng;
 use samael::{
+    idp::response_builder::ResponseAttribute,
+    idp::sp_extractor::RequiredAttribute,
     idp::{verified_request::UnverifiedAuthnRequest, IdentityProvider},
     metadata::NameIdFormat,
 };
@@ -143,6 +145,7 @@ async fn run_login(
     // TODO-config: Allow configuring whether or not the request should be signed.
     // let verified_request = unverified_request.try_verify_with_cert(&sp_key.key)?;
     let identity_provider = IdentityProvider::from_private_key_der(&idp.private_key)?;
+    let (first_name, last_name, email) = crate::generation::basic_attributes();
     let response = identity_provider.sign_authn_response(
         &idp.certificate,
         // TODO-config: Allow more control over who the assertion is for.
@@ -154,7 +157,32 @@ async fn run_login(
         &idp.entity_id,
         &unverified_request.request.id,
         // TODO-config: Allow specifying the attributes to return.
-        &[],
+        &[
+            ResponseAttribute {
+                required_attribute: RequiredAttribute {
+                    name: "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname"
+                        .to_string(),
+                    format: Some("urn:oasis:names:tc:SAML:2.0:attrname-format:basic".to_string()),
+                },
+                value: &first_name,
+            },
+            ResponseAttribute {
+                required_attribute: RequiredAttribute {
+                    name: "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname"
+                        .to_string(),
+                    format: Some("urn:oasis:names:tc:SAML:2.0:attrname-format:basic".to_string()),
+                },
+                value: &last_name,
+            },
+            ResponseAttribute {
+                required_attribute: RequiredAttribute {
+                    name: "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
+                        .to_string(),
+                    format: Some("urn:oasis:names:tc:SAML:2.0:attrname-format:basic".to_string()),
+                },
+                value: &email,
+            },
+        ],
     )?;
     let response_xml = response.to_xml()?;
     tracing::debug!("SAML assertion: {}", response_xml);
