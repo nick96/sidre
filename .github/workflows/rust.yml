@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  ci:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -18,15 +18,30 @@ jobs:
       run: docker-compose up -d pg
     - name: Run migrations
       run: docker-compose run --workdir=/workspace/sidre sidre-test sqlx migrate run
-    - name: Check sqlx data
-      run: docker-compose run --workdir=/workspace/sidre sidre-test cargo sqlx prepare --check -- --bin sidre
-    - name: Check formatting
-      run: docker-compose run sidre-test cargo +stable fmt -- --check
-    - name: Clippy (sidre)
-      # Just run against sidre for now to minimise changes to samael.
-      run: docker-compose run sidre-test cargo clippy -p sidre -- -D warnings
     - name: Run Test
       run: docker-compose run sidre-test cargo test --verbose
+  # Make sure sqlx-data.json is up-to-date with the latest migrations. This allows
+  # us to develop without requiring postgres instance to be running.
+  sqlx-data:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run migrations
+      run: docker-compose run --workdir=/workspace/sidre sidre-test sqlx migrate run
+    - name: Check sqlx data
+      run: docker-compose run --workdir=/workspace/sidre sidre-test cargo sqlx prepare --check -- --bin sidre
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Check formatting
+      run: docker-compose run sidre-test cargo +stable fmt -- --check
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Clippy
+      run: docker-compose run sidre-test cargo clippy -- -D warnings
   release:
     runs-on: ubuntu-latest
     steps:
