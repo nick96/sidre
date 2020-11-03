@@ -81,10 +81,10 @@ fn dig_name_id_format(metadata: &EntityDescriptor) -> Result<String, Error> {
     let descriptors = metadata
         .to_owned()
         .sp_sso_descriptors
-        .ok_or_else(|| Error::MissingField("NameIDFormat".to_string()))?;
+        .ok_or_else(|| Error::MissingField("SPSSODescriptor".to_string()))?;
     let descriptor = descriptors
         .first()
-        .ok_or_else(|| Error::MissingField("NameIDFormat".to_string()))?
+        .ok_or_else(|| Error::MissingField("SPSSODescriptor".to_string()))?
         .to_owned();
     let name_id_formats = descriptor
         .name_id_formats
