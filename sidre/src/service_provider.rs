@@ -1,6 +1,6 @@
 use crate::{error::Error, identity_provider::ensure_idp};
 use bytes::{Buf, Bytes};
-use samael::metadata::EntityDescriptor;
+use samael::metadata::{EntityDescriptor, NameIdFormat};
 use sqlx::postgres::PgPool;
 use std::str::FromStr;
 use warp::{http::Response, Rejection, Reply};
@@ -87,10 +87,14 @@ fn dig_name_id_format(metadata: &EntityDescriptor) -> Result<String, Error> {
         .to_owned();
     let name_id_formats = descriptor
         .name_id_formats
-        .ok_or_else(|| Error::MissingField("NameIDFormat".to_string()))?;
-    let name_id_format = name_id_formats
-        .first()
-        .ok_or_else(|| Error::MissingField("NameIDFormat".to_string()))?;
+        .or_else(|| {
+            Some(vec![NameIdFormat::EmailAddressNameIDFormat
+                .value()
+                .to_string()])
+        })
+        .unwrap();
+    let default = &NameIdFormat::EmailAddressNameIDFormat.value().to_string();
+    let name_id_format = name_id_formats.first().or(Some(default)).unwrap();
     Ok(name_id_format.to_owned())
 }
 

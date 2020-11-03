@@ -62,9 +62,9 @@ fn dig_issuer(request: &UnverifiedAuthnRequest) -> Result<String, Error> {
         .request
         .clone()
         .issuer
-        .ok_or_else(|| Error::MissingAuthnRequestIssuer)?
+        .ok_or(Error::MissingAuthnRequestIssuer)?
         .value
-        .ok_or_else(|| Error::MissingAuthnRequestIssuer)
+        .ok_or(Error::MissingAuthnRequestIssuer)
 }
 
 #[tracing::instrument(level = "info", skip(db, saml_request, relay_state, id))]
