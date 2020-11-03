@@ -16,6 +16,8 @@ services:
             context: ./sidre
         volumes:
             - .:/workspace:cached
+        # ports:
+        #     - "8080:8080"
         command: '/bin/sh -c "while sleep 1000; do :; done"'
         environment:
             DATABASE_URL: "postgres://sidre:password@pg/sidre"
