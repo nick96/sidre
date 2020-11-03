@@ -32,6 +32,7 @@ services:
         environment:
             DATABASE_URL: "postgres://sidre:password@pg/sidre"
             RUST_LOG: "info"
+            SQLX_OFFLINE: "true"
 
     sidre-dev:
         build:
