@@ -106,7 +106,7 @@ pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP,
         Err(sqlx::Error::RowNotFound) => {
             // TODO-config: Allow specifying the key type. Currently Samael only allows RSA keys. Does it make sense to allow Ed25519 as well?
             let idp = IdentityProvider::generate_new(KeyType::Rsa4096)?;
-            let entity_id = format!("https://{}/{}", host, id);
+            let entity_id = format!("http://{}/{}", host, id);
 
             let certificate_der = idp.create_certificate(&CertificateParams {
                 common_name: &format!("{} (sidre)", id),
@@ -116,7 +116,7 @@ pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP,
             let private_key = idp.export_private_key_der()?;
             // TODO-config: Add a knob for the name ID format (email address and persistent ID are probably the most important).
             let name_id_format = NameIdFormat::EmailAddressNameIDFormat.value();
-            let redirect_url = format!("https://{}/{}/sso", host, id);
+            let redirect_url = format!("http://{}/{}/sso", host, id);
             let metadata_valid_until = Utc::now() + Duration::days(CERT_EXPIRY_IN_DAYS as i64);
 
             sqlx::query!(
