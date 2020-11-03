@@ -1,0 +1,4 @@
+# This defaults to 7 but `samael::idp::sign_authn_response` takes 8.
+# It'd be nicer for that method so use the builder pattern but that
+# would require more work than I'm willing to put into it for now.
+too-many-arguments-threshold = 8
