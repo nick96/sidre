@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Start database
+      run: docker-compose up -d pg
     - name: Run migrations
       run: docker-compose run --workdir=/workspace/sidre sidre-test sqlx migrate run
     - name: Check sqlx data
