@@ -218,9 +218,5 @@ pub fn basic_attributes() -> (String, String, String) {
         .choose(&mut rng)
         .expect("Failed to get last name from list of constants");
     let email = format!("{}.{}@example.com", first_name, last_name);
-    (
-        first_name.to_string(),
-        last_name.to_string(),
-        email.to_string(),
-    )
+    (first_name.to_string(), last_name.to_string(), email)
 }
