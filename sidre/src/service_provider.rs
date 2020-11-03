@@ -25,6 +25,7 @@ pub struct ServideProviderRow {
 
 /// Create the servide provider from the specified attributes and link it to
 /// the identity provider identified by `idp_id`.
+#[allow(clippy::unit_arg)] // TODO: Figure out what's causing this lint error.
 #[tracing::instrument(level = "info", skip(db, certificates), err)]
 async fn create_service_provider(
     db: &PgPool,
