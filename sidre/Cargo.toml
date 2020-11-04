@@ -1,10 +1,10 @@
 [package]
 name = "sidre"
 version = "0.0.1"
-authors = ["Nick Spain <nicholas.spain@stileeducation.com>"]
+authors = ["Nick Spain <nicholas.spain96@gmail.com>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio = { version = "0.2", features = ["full"] }
