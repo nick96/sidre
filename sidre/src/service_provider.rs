@@ -212,3 +212,15 @@ pub async fn upsert_sp_metadata_handler(
         }
     }
 }
+
+mod test {
+    #[tokio::test]
+    async fn test_creates_sp_if_it_does_not_exist() {
+        todo!()
+    }
+
+    #[tokio::test]
+    async fn test_updates_sp_if_it_exists() {
+        todo!()
+    }
+}

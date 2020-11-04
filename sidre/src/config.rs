@@ -179,3 +179,16 @@ pub async fn idp_config_handler(
 pub async fn idp_sp_config_handler(idp_id: String, sp_id: String) -> Result<impl Reply, Rejection> {
     Ok(warp::reply())
 }
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_update_idp_config() {
+        todo!()
+    }
+
+    #[test]
+    fn test_update_sp_idp_config() {
+        todo!()
+    }
+}

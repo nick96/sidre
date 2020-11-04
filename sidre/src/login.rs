@@ -232,3 +232,12 @@ pub async fn login_handler(
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_idp_cert_fingerprint_in_response() {
+        // https://github.com/onelogin/ruby-saml/blob/24e90a3ec658d3ced0af7bfcdce1ce656830d9f6/lib/xml_security.rb#L223-L229
+        todo!()
+    }
+}
