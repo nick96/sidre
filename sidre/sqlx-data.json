@@ -55,6 +55,26 @@
       "nullable": []
     }
   },
+  "8bb4229725bcc53032cd154c3a0f3cca8f79ed5caf23bdd70c267de88ce02eb1": {
+    "query": "SELECT EXISTS (SELECT 1 FROM idps WHERE id = $1)",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "exists",
+          "type_info": "Bool"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      },
+      "nullable": [
+        null
+      ]
+    }
+  },
   "9670db94429e654d2eff6b8f71bbf63e3e89fcb0bff81cba2dc1403170f79b84": {
     "query": "INSERT INTO idp_user_attributes(user_id, key, value)\n                            VALUES($1, $2, $3)",
     "describe": {
@@ -215,6 +235,32 @@
         false,
         false,
         false,
+        false,
+        false
+      ]
+    }
+  },
+  "e5f46fa2175540c0d83ba510a539b9aa2357d9ebdeae92fde64260666d65d3ac": {
+    "query": "SELECT created_at, modified_at FROM idps WHERE id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "created_at",
+          "type_info": "Timestamptz"
+        },
+        {
+          "ordinal": 1,
+          "name": "modified_at",
+          "type_info": "Timestamptz"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      },
+      "nullable": [
         false,
         false
       ]
