@@ -56,6 +56,10 @@ Licensed under either of
 
 at your option.
 
+Note that everything under the `samael` is a subtree of the [samael crate](https://github.com/njaremko/samael)
+and is distrubuted under its license. I have made some modifications to it to extend it as a library
+for IdPs but my hope is to contribute them back once I know I'm happy with the changes.
+
 ## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
