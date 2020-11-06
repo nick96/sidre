@@ -12,14 +12,14 @@ use libxml::parser::Parser as XmlParser;
 #[test]
 fn test_dsig_context_creation()
 {
-    XmlSecSignatureContext::new();
+    XmlSecSignatureContext::new().unwrap();
 }
 
 
 #[test]
 fn test_dsig_key_setting()
 {
-    let mut ctx = XmlSecSignatureContext::new();
+    let mut ctx = XmlSecSignatureContext::new().unwrap();
 
     let key = XmlSecKey::from_file("tests/resources/key.pem", XmlSecKeyFormat::Pem, None)
         .expect("Failed to properly load key for test");
@@ -114,7 +114,7 @@ fn test_verify_custom_id_signature()
 
 fn common_setup_context_and_key() -> XmlSecSignatureContext
 {
-   let mut ctx = XmlSecSignatureContext::new();
+   let mut ctx = XmlSecSignatureContext::new().unwrap();
 
    let key = XmlSecKey::from_file("tests/resources/key.pem", XmlSecKeyFormat::Pem, None)
        .expect("Failed to properly load key for test");

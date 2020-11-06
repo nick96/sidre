@@ -45,7 +45,8 @@ fn create_signature(doc: &XmlDocument)
     let key = XmlSecKey::from_file("tests/resources/key.pem", XmlSecKeyFormat::Pem, None)
         .expect("Failed to properly load key from file");
 
-    let mut sigctx = XmlSecSignatureContext::new();
+    let mut sigctx = XmlSecSignatureContext::new()
+        .expect("Failed to create XmlSec context");
     sigctx.insert_key(key);
 
     sigctx.sign_document(doc)
@@ -58,7 +59,8 @@ fn verify_signature(doc: &XmlDocument)
     let key = XmlSecKey::from_file("tests/resources/key.pem", XmlSecKeyFormat::Pem, None)
         .expect("Failed to properly load key from file");
 
-    let mut sigctx = XmlSecSignatureContext::new();
+    let mut sigctx = XmlSecSignatureContext::new()
+        .expect("Failed to create XmlSec context");
     sigctx.insert_key(key);
 
     // optionaly specify the attribute ID names in the nodes you are verifying

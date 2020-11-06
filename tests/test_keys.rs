@@ -39,9 +39,9 @@ fn test_key_name_handing()
     let mut key = XmlSecKey::from_file("tests/resources/key.pem", XmlSecKeyFormat::Pem, None)
         .expect("Failed to properly load key for test");
 
-    key.set_name("testname");
+    key.set_name("testname").unwrap();
 
-    let name = key.get_name();
+    let name = key.get_name().unwrap();
 
     assert_eq!(name, "testname");
 }
