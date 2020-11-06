@@ -26,3 +26,7 @@ rand = "0.7.3"
 samael = { path = "../samael"}
 askama = "0.10.3"
 serde_json = "1.0.59"
+
+[dev-dependencies]
+roxmltree = "0.13.0"
+sha2 = "0.9.2"

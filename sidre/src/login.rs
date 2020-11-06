@@ -235,9 +235,122 @@ pub async fn login_handler(
 
 #[cfg(test)]
 mod test {
-    #[test]
-    fn test_idp_cert_fingerprint_in_response() {
-        // https://github.com/onelogin/ruby-saml/blob/24e90a3ec658d3ced0af7bfcdce1ce656830d9f6/lib/xml_security.rb#L223-L229
-        todo!()
+    use super::run_login;
+    use crate::db::create_db_pool;
+    use crate::identity_provider::ensure_idp;
+    use flate2::{write::DeflateEncoder, Compression};
+    use rand::Rng;
+    use samael::idp::verified_request::UnverifiedAuthnRequest;
+    use samael::service_provider::ServiceProvider;
+    use sha2::Digest;
+    use std::io::prelude::Write;
+
+    fn random_string() -> String {
+        rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(5)
+            .collect()
+    }
+
+    fn prepare_request_for_url(request: String) -> String {
+        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(request.as_bytes()).unwrap();
+        let deflated_request = encoder
+            .finish()
+            .expect("failed to finalise deflate encoder");
+        base64::encode(deflated_request)
+    }
+
+    async fn run_login_with_test_data(idp_id: &str, relay_state: Option<String>) -> String {
+        let request_xml = include_bytes!("../test-data/saml_request.xml");
+        let encoded_request = prepare_request_for_url(
+            std::str::from_utf8(request_xml)
+                .expect("Failed to convert saml_request.xml contents to UTF-8")
+                .to_string(),
+        );
+        let db = create_db_pool().await;
+        run_login(idp_id.to_string(), encoded_request, relay_state, &db)
+            .await
+            .expect("Failed to run login")
+    }
+
+    // https://github.com/onelogin/ruby-saml/blob/24e90a3ec658d3ced0af7bfcdce1ce656830d9f6/lib/xml_security.rb#L223-L229
+    #[tokio::test]
+    async fn test_idp_cert_fingerprint_in_response() {
+        let idp_id = random_string();
+        let host = random_string();
+
+        let db = create_db_pool().await;
+        let idp = ensure_idp(&db, &idp_id, &host).await.unwrap();
+
+        let raw_response = run_login_with_test_data(&idp_id, None).await;
+        let response = roxmltree::Document::parse(&raw_response).expect("Failed to parse response");
+        let saml_response = response
+            .descendants()
+            .find_map(|elem| {
+                if elem.has_tag_name("input") {
+                    let attrs = elem.attributes();
+                    if let Some(attr) = attrs.iter().find(|attr| attr.name() == "SAMLResponse") {
+                        return Some(attr.value());
+                    }
+                }
+                None
+            })
+            .expect("Failed to find SAMLResponse attribute on input element");
+        let service_provider = ServiceProvider::default();
+        let assertion = service_provider
+            .parse_response(
+                saml_response,
+                &["ONELOGIN_809707f0030a5d00620c9d9df97f627afe9dcc24"],
+            )
+            .expect("Failed to parse response");
+        let base64_cert = assertion
+            .signature
+            .expect("signature")
+            .key_info
+            .expect("key_info")
+            .first()
+            .expect("key_info[0]")
+            .x509_data
+            .clone()
+            .expect("x509_data")
+            .certificate
+            .expect("certificate");
+        let der_cert = base64::decode(base64_cert).expect("Failed to decode base64 cert");
+        let fingerprint = sha2::Sha256::digest(&der_cert);
+
+        let idp_cert = idp.certificate;
+        let expected_fingerprint = sha2::Sha256::digest(&idp_cert);
+
+        assert_eq!(fingerprint, expected_fingerprint);
+    }
+
+    #[tokio::test]
+    async fn test_returns_relay_state() {
+        let idp_id = random_string();
+        let host = random_string();
+
+        let db = create_db_pool().await;
+        let _ = ensure_idp(&db, &idp_id, &host).await.unwrap();
+        let expected_relay_state = random_string();
+
+        let raw_response =
+            run_login_with_test_data(&idp_id, Some(expected_relay_state.clone())).await;
+        let response = roxmltree::Document::parse(&raw_response).expect("Failed to parse response");
+
+        let relay_state = response
+            .descendants()
+            .find_map(|node| {
+                if node.has_tag_name("input") {
+                    let attrs = node.attributes();
+                    if let Some(attr) = attrs.iter().find(|attr| attr.name() == "RelayState") {
+                        return Some(attr.value());
+                    }
+                }
+                None
+            })
+            .expect("Failed to find RelayState in response");
+
+        assert_eq!(relay_state, expected_relay_state);
     }
 }
