@@ -40,7 +40,7 @@ pub fn sign_xml<Bytes: AsRef<[u8]>>(xml: Bytes, private_key_der: &[u8]) -> Resul
     document.specify_idattr(search, idattr_name, Some(&[namespace]))?;
 
     let key = XmlSecKey::from_memory(private_key_der, XmlSecKeyFormat::Der, None)?;
-    let mut context = XmlSecSignatureContext::new();
+    let mut context = XmlSecSignatureContext::new()?;
     context.insert_key(key);
 
     context.sign_document(&document)?;
@@ -82,7 +82,7 @@ pub fn verify_signed_xml<Bytes: AsRef<[u8]>>(
     document.specify_idattr(search, idattr_name, namespaces)?;
 
     let key = XmlSecKey::from_memory(x509_cert_der, XmlSecKeyFormat::CertDer, None)?;
-    let mut context = XmlSecSignatureContext::new();
+    let mut context = XmlSecSignatureContext::new()?;
     context.insert_key(key);
 
     let valid = context.verify_document(&document)?;
