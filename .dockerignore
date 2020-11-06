@@ -2,7 +2,7 @@
 .env
 .vscode/
 /target
-data/
+test-data/
 hooks/
 migrations/
 .env
