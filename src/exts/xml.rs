@@ -2,6 +2,7 @@
 //! XmlSec Extensions over LibXML2 Wrapper
 //!
 use crate::XmlSecResult;
+use crate::XmlSecError;
 
 use crate::XmlDocument;
 use crate::XmlXPathContext;
@@ -58,7 +59,7 @@ impl XmlSecDocumentExt for XmlDocument
                 let attrptr = attrnode.node_ptr() as *mut bindings::_xmlAttr;
 
                 let id     = attrnode.get_content();
-                let cid    = CString::new(id.clone()).unwrap();
+                let cid    = CString::new(id.clone()).map_err(|_| XmlSecError::CStringError)?;
                 let cidptr = cid.as_ptr() as *mut c_uchar;
 
                 let existing = unsafe { bindings::xmlGetID(docptr, cidptr) };

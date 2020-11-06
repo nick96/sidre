@@ -50,18 +50,27 @@ impl XmlSecKey
 
         crate::xmlsec::guarantee_xmlsec_init();
 
-        // TODO proper sanitization/error handling of input
-        let cpath   = CString::new(path).unwrap();
-        let cpasswd = password.map(|p| CString::new(p).unwrap());
+        let cpath = CString::new(path).map_err(|_| XmlSecError::CStringError)?;
+        let cpasswd = if let Some(pass) = password {
+            Some(CString::new(pass).map_err(|_| XmlSecError::CStringError)?)
+        } else {
+            None
+        };
 
         // Load key from file
-        let key = unsafe { bindings::xmlSecOpenSSLAppKeyLoad(
-            cpath.as_ptr(),
-            format as u32,
-            if cpasswd.is_some() {cpasswd.unwrap().as_ptr()} else {null()},
-            null_mut(),
-            null_mut()
-        ) };
+        let key = unsafe {
+            bindings::xmlSecOpenSSLAppKeyLoad(
+                cpath.as_ptr(),
+                format as u32,
+                if let Some(cpasswd) = cpasswd {
+                    cpasswd.as_ptr()
+                } else {
+                    null()
+                },
+                null_mut(),
+                null_mut(),
+            )
+        };
 
         if key.is_null() {
             return Err(XmlSecError::KeyLoadError);
@@ -75,18 +84,27 @@ impl XmlSecKey
     {
         crate::xmlsec::guarantee_xmlsec_init();
 
-        // TODO proper sanitization/error handling of input
-        let cpasswd = password.map(|p| CString::new(p).unwrap());
+        let cpasswd = if let Some(pass) = password {
+            Some(CString::new(pass).map_err(|_| XmlSecError::CStringError)?)
+        } else {
+            None
+        };
 
         // Load key from buffer
-        let key = unsafe { bindings::xmlSecOpenSSLAppKeyLoadMemory(
-            buffer.as_ptr(),
-            buffer.len() as u32,
-            format as u32,
-            if cpasswd.is_some() {cpasswd.unwrap().as_ptr()} else {null()},
-            null_mut(),
-            null_mut()
-        ) };
+        let key = unsafe {
+            bindings::xmlSecOpenSSLAppKeyLoadMemory(
+                buffer.as_ptr(),
+                buffer.len() as u32,
+                format as u32,
+                if let Some(cpasswd) = cpasswd {
+                    cpasswd.as_ptr()
+                } else {
+                    null()
+                },
+                null_mut(),
+                null_mut(),
+            )
+        };
 
         if key.is_null() {
             return Err(XmlSecError::KeyLoadError);
@@ -98,7 +116,7 @@ impl XmlSecKey
     /// Load certificate into key by specifying path and ints format.
     pub fn load_cert_from_file(&self, path: &str, format: XmlSecKeyFormat) -> XmlSecResult<()>
     {
-        let cpath = CString::new(path).unwrap();
+        let cpath = CString::new(path).map_err(|_| XmlSecError::CStringError)?;
 
         let rc = unsafe { bindings::xmlSecOpenSSLAppKeyCertLoad(self.0, cpath.as_ptr(), format as u32) };
 
@@ -129,27 +147,25 @@ impl XmlSecKey
     }
 
     /// Set name of the key.
-    pub fn set_name(&mut self, name: &str)
+    pub fn set_name(&mut self, name: &str) -> XmlSecResult<()>
     {
-        let cname = CString::new(name).unwrap();
+        let cname = CString::new(name).map_err(|_| XmlSecError::CStringError)?;
 
-        let rc = unsafe { bindings::xmlSecKeySetName(
-            self.0,
-            cname.as_ptr() as *const c_uchar
-        ) };
+        let rc = unsafe { bindings::xmlSecKeySetName(self.0, cname.as_ptr() as *const c_uchar) };
 
         if rc < 0 {
-            panic!("Failed to set name for key");   // TODO proper error handling
+            return Err(XmlSecError::KeyNameError);
         }
+        Ok(())
     }
 
     /// Get the name currently set for the key.
-    pub fn get_name(&self) -> &str
+    pub fn get_name(&self) -> XmlSecResult<&str>
     {
-        let raw   = unsafe { bindings::xmlSecKeyGetName(self.0) };
+        let raw = unsafe { bindings::xmlSecKeyGetName(self.0) };
         let cname = unsafe { CStr::from_ptr(raw as *const c_char) };
 
-        cname.to_str().unwrap()  // TODO proper error handling
+        cname.to_str().map_err(|_| XmlSecError::CStringError)
     }
 
     /// Create from raw pointer to an underlying xmlsec key structure. Henceforth its lifetime will be managed by this

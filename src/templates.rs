@@ -151,7 +151,7 @@ impl<'d> TemplateBuilder for XmlDocumentTemplateBuilder<'d>
     {
         let curi = {
             if let Some(uri) = self.options.uri {
-                CString::new(uri).unwrap().into_raw() as *const c_uchar
+                CString::new(uri).map_err(|_| XmlSecError::CStringError)?.into_raw() as *const c_uchar
             } else {
                 null()
             }
@@ -176,7 +176,7 @@ impl<'d> TemplateBuilder for XmlDocumentTemplateBuilder<'d>
         ) };
 
         if signature.is_null() {
-            panic!("Failed to create signature template");
+            return Err(XmlSecError::SignatureTemplateCreationError);
         }
 
         let reference = unsafe { bindings::xmlSecTmplSignatureAddReference(
@@ -188,19 +188,19 @@ impl<'d> TemplateBuilder for XmlDocumentTemplateBuilder<'d>
         ) };
 
         if reference.is_null() {
-            panic!("Failed to add enveloped transform to reference");
+            return Err(XmlSecError::AddEnvelopedTransformToReferenceError);
         }
 
         let envelope = unsafe { bindings::xmlSecTmplReferenceAddTransform(reference, bindings::xmlSecTransformEnvelopedGetKlass()) };
 
         if envelope.is_null() {
-            panic!("Failed to add enveloped transform")
+            return Err(XmlSecError::AddEnvelopedTransformError);
         }
 
         let keyinfo = unsafe { bindings::xmlSecTmplSignatureEnsureKeyInfo(signature, null()) };
 
         if keyinfo.is_null() {
-            panic!("Failed to ensure key info");
+            return Err(XmlSecError::KeyInfoError);
         }
 
         if self.options.keyname
@@ -208,7 +208,7 @@ impl<'d> TemplateBuilder for XmlDocumentTemplateBuilder<'d>
             let keyname = unsafe { bindings::xmlSecTmplKeyInfoAddKeyName(keyinfo, null()) };
 
             if keyname.is_null() {
-                panic!("Failed to add key name");
+                return Err(XmlSecError::KeyNameError);
             }
         }
 
@@ -217,7 +217,7 @@ impl<'d> TemplateBuilder for XmlDocumentTemplateBuilder<'d>
             let keyvalue = unsafe { bindings::xmlSecTmplKeyInfoAddKeyValue(keyinfo) };
 
             if keyvalue.is_null() {
-                panic!("Failed to add key value");
+                return Err(XmlSecError::KeyValueError);
             }
         }
 
@@ -226,7 +226,7 @@ impl<'d> TemplateBuilder for XmlDocumentTemplateBuilder<'d>
             let x509data = unsafe { bindings::xmlSecTmplKeyInfoAddX509Data(keyinfo) };
 
             if x509data.is_null() {
-                panic!("Failed to add key value");
+                return Err(XmlSecError::KeyValueError);
             }
         }
 

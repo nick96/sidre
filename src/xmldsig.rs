@@ -24,17 +24,17 @@ pub struct XmlSecSignatureContext
 impl XmlSecSignatureContext
 {
     /// Builds a context, ensuring xmlsec is initialized.
-    pub fn new() -> Self
+    pub fn new() -> XmlSecResult<Self>
     {
         crate::xmlsec::guarantee_xmlsec_init();
 
         let ctx = unsafe { bindings::xmlSecDSigCtxCreate(null_mut()) };
 
         if ctx.is_null() {
-            panic!("Failed to create dsig context");
+            return Err(XmlSecError::DSigContextError);
         }
 
-        Self {ctx}
+        Ok(Self {ctx})
     }
 
     /// Sets the key to use for signature or verification. In case a key had
@@ -169,7 +169,7 @@ impl XmlSecSignatureContext
             bindings::xmlSecDSigStatus_xmlSecDSigStatusSucceeded => Ok(true),
             bindings::xmlSecDSigStatus_xmlSecDSigStatusInvalid   => Ok(false),
 
-            _ => panic!("Failed to interprete xmlSecDSigStatus code")
+            _ => Err(XmlSecError::UnknownDSigStatusCode),
         }
     }
 }
