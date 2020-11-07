@@ -21,8 +21,14 @@ fn test_extract_sp() {
         .expect("failed to get x509 cert");
 
     let authn_request_xml = include_str!("../../test_vectors/authn_request.xml");
-    verify_signed_xml(authn_request_xml, x509cert.as_slice(), Some("ID"))
-        .expect("failed to verify authn request");
+    verify_signed_xml(
+        authn_request_xml,
+        x509cert.as_slice(),
+        Some("ID"),
+        "//samlp:AuthnRequest",
+        Some(&[("samlp", "urn:oasis:names:tc:SAML:2.0:protocol")]),
+    )
+    .expect("failed to verify authn request");
 
     let issuer = extractor.issuer().expect("no issuer");
     let acs = extractor.acs().expect("invalid acs");
@@ -100,8 +106,14 @@ fn test_signed_response() {
     let out_xml = out_response
         .to_xml()
         .expect("failed to serialize response xml");
-    verify_signed_xml(out_xml.as_bytes(), idp_cert.as_slice(), Some("ID"))
-        .expect("verification failed");
+    verify_signed_xml(
+        out_xml.as_bytes(),
+        idp_cert.as_slice(),
+        Some("ID"),
+        "//saml2p:Response",
+        Some(&[("saml2p", "urn:oasis:names:tc:SAML:2.0:protocol")]),
+    )
+    .expect("verification failed");
 }
 
 #[test]
@@ -114,7 +126,14 @@ fn test_signed_response_threads() {
         let _ = unverified
             .try_verify_self_signed()
             .expect("failed to verify self signed signature");
-        verify_signed_xml(authn_request_xml, cert_der, Some("ID")).expect("failed verify");
+        verify_signed_xml(
+            authn_request_xml,
+            cert_der,
+            Some("ID"),
+            "//saml2p:AuthnRequest",
+            Some(&[("saml2p", "urn:oasis:names:tc:SAML:2.0:protocol")]),
+        )
+        .expect("failed verify");
     };
 
     let mut handles = vec![];
@@ -166,7 +185,6 @@ fn test_signed_response_fingerprint() {
         .unwrap()
         .certificate
         .unwrap();
-    let der_cert =
-        crate::crypto::decode_x509_cert(&base64_cert).expect("failed to decode cert ");
+    let der_cert = crate::crypto::decode_x509_cert(&base64_cert).expect("failed to decode cert ");
     assert_eq!(der_cert, idp_cert);
 }

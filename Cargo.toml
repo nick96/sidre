@@ -9,14 +9,9 @@ repository = "https://github.com/njaremko/samael"
 description = "A SAML2 library for Rust"
 keywords = ["saml", "saml2", "xml", "sso"]
 categories = ["authentication"]
-build = "bindings.rs"
 
 [features]
-xmlsec = ["libc", "lazy_static", "libxml"]
-
-[build-dependencies]
-pkg-config =  "^0.3.17"
-bindgen    = "^0.51.0"
+usexmlsec = ["xmlsec", "libxml"]
 
 [dependencies]
 openssl = "0.10"
@@ -31,8 +26,7 @@ flate2 = "1.0"
 snafu = "0.6"
 rand = "0.7"
 derive_builder = "0.9.0"
-libxml = { version = "0.2.13", optional = true}
 uuid = { version = "0.8.1", features = ["v4"] }
 data-encoding = "2.2.0"
-libc        = {version = "^0.2.66", optional = true}
-lazy_static = {version = "^1.4.0", optional = true}
+xmlsec = { git = "https://github.com/nick96/rust-xmlsec", branch = "remove-panics-and-unwraps", optional = true }
+libxml = { version = "0.2.15", optional = true }
