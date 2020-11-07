@@ -211,3 +211,24 @@ pub fn build_response_template(
         name_id, issuer, request_id, attributes, acs_url, audience, cert_der,
     )
 }
+
+pub fn build_response_template_with_signed_assertion(
+    cert_der: &[u8],
+    name_id: &str,
+    audience: &str,
+    issuer: &str,
+    acs_url: &str,
+    request_id: &str,
+    attributes: &[ResponseAttribute],
+) -> Response {
+    let mut response = build_response(
+        name_id, issuer, request_id, attributes, acs_url, audience, cert_der,
+    );
+    response.signature = None;
+
+    let mut assertion = response.assertion.expect("assertion");
+    assertion.signature = Some(signature_template(&assertion.id, cert_der));
+    response.assertion = Some(assertion);
+
+    response
+}

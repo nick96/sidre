@@ -16,7 +16,9 @@ use std::str::FromStr;
 
 use crate::crypto::{self};
 
-use crate::idp::response_builder::{build_response_template, ResponseAttribute};
+use crate::idp::response_builder::{
+    build_response_template, build_response_template_with_signed_assertion, ResponseAttribute,
+};
 use crate::schema::Response;
 
 pub struct IdentityProvider {
@@ -127,6 +129,41 @@ impl IdentityProvider {
             "ID",
             "//saml2p:Response",
             Some(&[("saml2p", "urn:oasis:names:tc:SAML:2.0:protocol")]),
+        )?;
+        let signed_response = Response::from_str(signed_xml.as_str())?;
+        Ok(signed_response)
+    }
+
+    pub fn sign_authn_assertion(
+        &self,
+        idp_x509_cert_der: &[u8],
+        subject_name_id: &str,
+        audience: &str,
+        acs_url: &str,
+        issuer: &str,
+        in_response_to_id: &str,
+        attributes: &[ResponseAttribute],
+    ) -> Result<Response, Box<dyn std::error::Error>> {
+        let response = build_response_template_with_signed_assertion(
+            idp_x509_cert_der,
+            subject_name_id,
+            audience,
+            issuer,
+            acs_url,
+            in_response_to_id,
+            attributes,
+        );
+
+        let response_xml_unsigned = response.to_xml()?;
+        use std::io::Write;
+        let mut fh = std::fs::File::create("response.xml").unwrap();
+        fh.write_all(response_xml_unsigned.as_bytes()).unwrap();
+        let signed_xml = crypto::sign_xml(
+            response_xml_unsigned.as_str(),
+            self.export_private_key_der()?.as_slice(),
+            "ID",
+            "//saml2:Assertion",
+            Some(&[("saml2", "urn:oasis:names:tc:SAML:2.0:assertion")]),
         )?;
         let signed_response = Response::from_str(signed_xml.as_str())?;
         Ok(signed_response)
