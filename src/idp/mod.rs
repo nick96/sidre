@@ -124,6 +124,9 @@ impl IdentityProvider {
         let signed_xml = crypto::sign_xml(
             response_xml_unsigned.as_str(),
             self.export_private_key_der()?.as_slice(),
+            "ID",
+            "//saml2p:Response",
+            Some(&[("saml2p", "urn:oasis:names:tc:SAML:2.0:protocol")]),
         )?;
         let signed_response = Response::from_str(signed_xml.as_str())?;
         Ok(signed_response)

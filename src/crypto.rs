@@ -4,10 +4,10 @@ use std::ffi::CString;
 
 use snafu::Snafu;
 
-#[cfg(feature = "xmlsec")]
-use crate::xmlsec::{self, XmlSecKey, XmlSecKeyFormat, XmlSecSignatureContext};
-#[cfg(feature = "xmlsec")]
+#[cfg(feature = "usexmlsec")]
 use libxml::parser::Parser as XmlParser;
+#[cfg(feature = "usexmlsec")]
+use xmlsec::{self, XmlSecDocumentExt, XmlSecKey, XmlSecKeyFormat, XmlSecSignatureContext};
 
 #[cfg(feature = "xmlsec")]
 const XMLNS_XML_DSIG: &str = "http://www.w3.org/2000/09/xmldsig#";
@@ -29,13 +29,13 @@ pub enum Error {
 
     XmlMissingRootElement,
 
-    #[cfg(feature = "xmlsec")]
+    #[cfg(feature = "usexmlsec")]
     #[snafu(display("xml sec Error: {}", error))]
     XmlParseError {
         error: libxml::parser::XmlParseError,
     },
 
-    #[cfg(feature = "xmlsec")]
+    #[cfg(feature = "usexmlsec")]
     #[snafu(display("xml sec Error: {}", error))]
     XmlSecError {
         error: xmlsec::XmlSecError,
@@ -66,55 +66,65 @@ impl From<base64::DecodeError> for Error {
     }
 }
 
-#[cfg(feature = "xmlsec")]
+#[cfg(feature = "usexmlsec")]
 impl From<xmlsec::XmlSecError> for Error {
     fn from(error: xmlsec::XmlSecError) -> Self {
         Error::XmlSecError { error }
     }
 }
 
-#[cfg(feature = "xmlsec")]
+#[cfg(feature = "usexmlsec")]
 impl From<libxml::parser::XmlParseError> for Error {
     fn from(error: libxml::parser::XmlParseError) -> Self {
         Error::XmlParseError { error }
     }
 }
 
-#[cfg(feature = "xmlsec")]
+#[cfg(feature = "usexmlsec")]
 impl From<openssl::error::ErrorStack> for Error {
     fn from(error: openssl::error::ErrorStack) -> Self {
         Error::OpenSSLError { error }
     }
 }
 
-#[cfg(feature = "xmlsec")]
-pub fn sign_xml<Bytes: AsRef<[u8]>>(xml: Bytes, private_key_der: &[u8]) -> Result<String, Error> {
+#[cfg(feature = "usexmlsec")]
+pub fn sign_xml<Bytes: AsRef<[u8]>>(
+    xml: Bytes,
+    private_key_der: &[u8],
+    id_attribute: &str,
+    path_to_element_to_sign: &str,
+    namespaces: Option<&[(&str, &str)]>,
+) -> Result<String, Error> {
     let parser = XmlParser::default();
     let document = parser.parse_string(xml)?;
 
-    let key = XmlSecKey::from_memory(private_key_der, XmlSecKeyFormat::Der)?;
+    let key = XmlSecKey::from_memory(private_key_der, XmlSecKeyFormat::Der, None)?;
+    document.specify_idattr(path_to_element_to_sign, id_attribute, namespaces)?;
     let mut context = XmlSecSignatureContext::new()?;
     context.insert_key(key);
 
-    context.sign_document(&document, Some("ID"))?;
+    context.sign_document(&document)?;
 
     Ok(document.to_string())
 }
 
-#[cfg(feature = "xmlsec")]
+#[cfg(feature = "usexmlsec")]
 pub fn verify_signed_xml<Bytes: AsRef<[u8]>>(
     xml: Bytes,
     x509_cert_der: &[u8],
     id_attribute: Option<&str>,
+    path_to_signed_element: &str,
+    namespaces: Option<&[(&str, &str)]>
 ) -> Result<(), Error> {
     let parser = XmlParser::default();
     let document = parser.parse_string(xml)?;
 
-    let key = XmlSecKey::from_memory(x509_cert_der, XmlSecKeyFormat::CertDer)?;
+    let key = XmlSecKey::from_memory(x509_cert_der, XmlSecKeyFormat::CertDer, None)?;
     let mut context = XmlSecSignatureContext::new()?;
     context.insert_key(key);
 
-    let valid = context.verify_document(&document, id_attribute)?;
+    document.specify_idattr(path_to_signed_element, id_attribute.unwrap_or("ID"), namespaces)?;
+    let valid = context.verify_document(&document)?;
 
     if !valid {
         return Err(Error::InvalidSignature);
