@@ -236,11 +236,12 @@ pub async fn login_handler(
 #[cfg(test)]
 mod test {
     use super::run_login;
+    use crate::app;
     use crate::db::create_db_pool;
     use crate::identity_provider::ensure_idp;
     use flate2::{write::DeflateEncoder, Compression};
     use rand::Rng;
-    use samael::idp::verified_request::UnverifiedAuthnRequest;
+    use samael::metadata::EntityDescriptor;
     use samael::service_provider::ServiceProvider;
     use sha2::Digest;
     use std::io::prelude::Write;
@@ -352,5 +353,70 @@ mod test {
             .expect("Failed to find RelayState in response");
 
         assert_eq!(relay_state, expected_relay_state);
+    }
+
+    #[tokio::test]
+    async fn test_cert_in_metadata_same_as_cert_in_response() {
+        let idp_id = random_string();
+        let filter = app().await;
+        let metadata_response = warp::test::request()
+            .header("Host", "http://localhost:8080")
+            .path(&format!("/{}/metadata", idp_id))
+            .reply(&filter)
+            .await;
+        assert_eq!(metadata_response.status(), 200);
+        let metadata_xml = std::str::from_utf8(metadata_response.body())
+            .expect("failed to convert metadata response to utf8 string");
+        let metadata: EntityDescriptor = metadata_xml
+            .parse()
+            .expect("failed to parse metadata response into EntityDescriptor");
+        let metadata_cert_base64 = metadata
+            .signature
+            .expect("siggnature")
+            .key_info
+            .expect("key_info")
+            .first()
+            .expect("key_info[0]")
+            .x509_data
+            .expect("x509_data")
+            .certificate
+            .expect("certificate");
+        let metadata_cert = base64::decode(metadata_cert_base64)
+            .expect("failed to decode base64 encoded cert in metadata");
+
+        let raw_response = run_login_with_test_data(&idp_id, None).await;
+        let response = roxmltree::Document::parse(&raw_response).expect("Failed to parse response");
+        let saml_response = response
+            .descendants()
+            .find_map(|elem| {
+                if elem.has_tag_name("input") {
+                    let attrs = elem.attributes();
+                    if let Some(attr) = attrs.iter().find(|attr| attr.name() == "SAMLResponse") {
+                        return Some(attr.value());
+                    }
+                }
+                None
+            })
+            .expect("Failed to find SAMLResponse attribute on input element");
+        let service_provider = ServiceProvider::default();
+        let assertion = service_provider
+            .parse_response(
+                saml_response,
+                &["ONELOGIN_809707f0030a5d00620c9d9df97f627afe9dcc24"],
+            )
+            .expect("Failed to parse response");
+        let base64_cert = assertion
+            .signature
+            .expect("signature")
+            .key_info
+            .expect("key_info")
+            .first()
+            .expect("key_info[0]")
+            .x509_data
+            .clone()
+            .expect("x509_data")
+            .certificate
+            .expect("certificate");
+        let der_cert = base64::decode(base64_cert).expect("Failed to decode base64 cert");
     }
 }
