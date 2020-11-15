@@ -23,6 +23,7 @@ pub use sp_sso_descriptor::SpSsoDescriptor;
 pub mod de {
     pub use quick_xml::de::*;
 }
+pub use entity_descriptor::Error;
 use quick_xml::events::{BytesEnd, BytesStart, Event};
 use quick_xml::Writer;
 use std::io::Cursor;
