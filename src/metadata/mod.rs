@@ -121,7 +121,7 @@ pub struct SSODescriptor {
     pub name_id_formats: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
 pub struct IdpSsoDescriptor {
     #[serde(rename = "ID")]
     pub id: Option<String>,
