@@ -961,11 +961,11 @@ checksum = "2448f6066e80e3bfc792e9c98bf705b4b0fc6e8ef5b43e5889aff0eaa9c58743"
 
 [[package]]
 name = "libloading"
-version = "0.6.4"
+version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3557c9384f7f757f6d139cd3a4c62ef4e850696c16bf27924a5538c8a09717a1"
+checksum = "1090080fe06ec2648d0da3881d9453d97e71a45f00eb179af7fdd7e3f686fdb0"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "winapi 0.3.9",
 ]
 
@@ -1663,14 +1663,13 @@ checksum = "ef703b7cb59335eae2eb93ceb664c0eb7ea6bf567079d843e09420219668e072"
 [[package]]
 name = "samael"
 version = "0.0.7"
+source = "git+https://github.com/nick96/samael?branch=use-xmlsec-crate#6949b2e41ad58dfb701f7df461aa117e318bacc1"
 dependencies = [
  "base64",
  "chrono",
  "data-encoding",
  "derive_builder",
  "flate2",
- "lazy_static",
- "libc",
  "libxml",
  "openssl",
  "openssl-probe",
