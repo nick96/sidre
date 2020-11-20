@@ -29,7 +29,7 @@ jobs:
     - name: Start database
       run: docker-compose up -d pg
     - name: Run migrations
-      run: ./scrips/migrate.sh
+      run: ./scripts/migrate.sh
     - name: Check sqlx data
       run: docker-compose run --workdir=/workspace/sidre sidre-test cargo sqlx prepare --check -- --bin sidre
   formatting:
