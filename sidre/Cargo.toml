@@ -18,7 +18,7 @@ sqlx = { git = "https://github.com/launchbadge/sqlx", rev = "2e1658", default-fe
 thiserror = "1.0.20"
 base64 = "0.12.3"
 serde = "1.0.116"
-flate2 = "1.0.17"
+flate2 = "1.0.19"
 bytes = "0.5.6"
 tracing-futures = "0.2.4"
 uuid = {version = "0.8.1", features = ["v4"]}
