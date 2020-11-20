@@ -1663,7 +1663,7 @@ checksum = "ef703b7cb59335eae2eb93ceb664c0eb7ea6bf567079d843e09420219668e072"
 [[package]]
 name = "samael"
 version = "0.0.7"
-source = "git+https://github.com/nick96/samael?branch=use-xmlsec-crate#6949b2e41ad58dfb701f7df461aa117e318bacc1"
+source = "git+https://github.com/nick96/samael?rev=59fe9f762d72865ea9f8fdde888f6f211e894eb8#59fe9f762d72865ea9f8fdde888f6f211e894eb8"
 dependencies = [
  "base64",
  "chrono",
