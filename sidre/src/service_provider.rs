@@ -213,14 +213,119 @@ pub async fn upsert_sp_metadata_handler(
     }
 }
 
+#[cfg(test)]
 mod test {
+    use super::create_service_provider;
+    use crate::db::create_db_pool;
+    use chrono::{DateTime, Utc};
+    use rand::Rng;
+
+    #[derive(PartialEq, Debug)]
+    struct CreatedAtAndModifiedAt {
+        created_at: DateTime<Utc>,
+        modified_at: DateTime<Utc>,
+    }
+
+    fn random_string() -> String {
+        rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(5)
+            .collect()
+    }
+
     #[tokio::test]
     async fn test_creates_sp_if_it_does_not_exist() {
-        todo!()
+        let pool = create_db_pool().await;
+        let idp_id = random_string();
+        let sp_id = random_string();
+        let entity_id = random_string();
+        let name_id_format = samael::metadata::NameIdFormat::EmailAddressNameIDFormat
+            .value()
+            .to_string();
+        let consume_endpoint = random_string();
+        let db = create_db_pool().await;
+        let exists = sqlx::query!("SELECT EXISTS (SELECT 1 FROM sps WHERE id = $1)", sp_id)
+            .fetch_one(&db)
+            .await
+            .unwrap()
+            .exists
+            .unwrap();
+        assert!(!exists);
+        create_service_provider(
+            &pool,
+            &idp_id,
+            &sp_id,
+            &entity_id,
+            &name_id_format,
+            &consume_endpoint,
+            vec![],
+        )
+        .await
+        .expect("failed to create service provider");
+        let exists = sqlx::query!("SELECT EXISTS (SELECT 1 FROM sps WHERE id = $1)", sp_id)
+            .fetch_one(&db)
+            .await
+            .unwrap()
+            .exists
+            .unwrap();
+        assert!(exists);
     }
 
     #[tokio::test]
     async fn test_updates_sp_if_it_exists() {
-        todo!()
+        let pool = create_db_pool().await;
+        let idp_id = random_string();
+        let sp_id = random_string();
+        let entity_id = random_string();
+        let name_id_format = samael::metadata::NameIdFormat::EmailAddressNameIDFormat
+            .value()
+            .to_string();
+        let consume_endpoint = random_string();
+        let db = create_db_pool().await;
+        create_service_provider(
+            &pool,
+            &idp_id,
+            &sp_id,
+            &entity_id,
+            &name_id_format,
+            &consume_endpoint,
+            vec![],
+        )
+        .await
+        .expect("failed to create service provider");
+        let after_creation = sqlx::query_as!(
+            CreatedAtAndModifiedAt,
+            "SELECT created_at, modified_at FROM sps WHERE id = $1",
+            sp_id
+        )
+        .fetch_one(&db)
+        .await
+        .unwrap();
+
+        let entity_id = random_string();
+        let consume_endpoint = random_string();
+        create_service_provider(
+            &pool,
+            &idp_id,
+            &sp_id,
+            &entity_id,
+            &name_id_format,
+            &consume_endpoint,
+            vec![],
+        )
+        .await
+        .expect("failed to create service provider");
+
+        let after_updation = sqlx::query_as!(
+            CreatedAtAndModifiedAt,
+            "SELECT created_at, modified_at FROM sps WHERE id = $1",
+            sp_id
+        )
+        .fetch_one(&db)
+        .await
+        .unwrap();
+
+        assert_eq!(after_creation.created_at, after_updation.created_at);
+        assert!(after_creation.modified_at < after_updation.modified_at);
     }
 }

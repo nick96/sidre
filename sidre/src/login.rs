@@ -372,12 +372,14 @@ mod test {
             .expect("failed to parse metadata response into EntityDescriptor");
         let metadata_cert_base64 = metadata
             .signature
-            .expect("siggnature")
+            .clone()
+            .expect("signature")
             .key_info
             .expect("key_info")
             .first()
             .expect("key_info[0]")
             .x509_data
+            .clone()
             .expect("x509_data")
             .certificate
             .expect("certificate");
@@ -418,5 +420,7 @@ mod test {
             .certificate
             .expect("certificate");
         let der_cert = base64::decode(base64_cert).expect("Failed to decode base64 cert");
+
+        assert_eq!(metadata_cert, der_cert);
     }
 }
