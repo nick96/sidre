@@ -17,7 +17,7 @@ jobs:
     - name: Start aux services
       run: docker-compose up -d pg
     - name: Run migrations
-      run: docker-compose run --workdir=/workspace/sidre sidre-test sqlx migrate run
+      run: ./scripts/migrate.sh
     - name: Run Test
       run: docker-compose run sidre-test cargo test --verbose
   # Make sure sqlx-data.json is up-to-date with the latest migrations. This allows
@@ -29,7 +29,7 @@ jobs:
     - name: Start database
       run: docker-compose up -d pg
     - name: Run migrations
-      run: docker-compose run --workdir=/workspace/sidre sidre-test sqlx migrate run
+      run: ./scrips/migrate.sh
     - name: Check sqlx data
       run: docker-compose run --workdir=/workspace/sidre sidre-test cargo sqlx prepare --check -- --bin sidre
   formatting:
