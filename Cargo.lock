@@ -1930,7 +1930,7 @@ dependencies = [
  "askama",
  "base64 0.13.0",
  "base64",
- "bytes 0.5.6",
+ "bytes 0.6.0",
  "chrono",
  "flate2",
  "rand 0.7.3",
