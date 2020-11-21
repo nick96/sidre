@@ -16,7 +16,7 @@ chrono = "0.4.18"
 # for some clippy warnings in the sqlx macros and the CLI has the useful additions of setup and reset.
 sqlx = { git = "https://github.com/launchbadge/sqlx", rev = "2e1658", default-features = false, features = [ "runtime-tokio", "macros", "postgres", "uuid", "chrono", "offline" ] }
 thiserror = "1.0.22"
-base64 = "0.12.3"
+base64 = "0.13.0"
 serde = "1.0.116"
 flate2 = "1.0.19"
 bytes = "0.5.6"
