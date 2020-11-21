@@ -7,24 +7,24 @@ license = "MIT OR Apache-2.0"
 
 
 [dependencies]
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "0.3", features = ["full"] }
 warp = "0.2"
 tracing = "0.1.21"
-tracing-subscriber = "0.2.12"
+tracing-subscriber = "0.2.15"
 chrono = "0.4.18"
 # This is currently the latest on master and is passing on CI. I'm using it because it includes a fix
 # for some clippy warnings in the sqlx macros and the CLI has the useful additions of setup and reset.
 sqlx = { git = "https://github.com/launchbadge/sqlx", rev = "2e1658", default-features = false, features = [ "runtime-tokio", "macros", "postgres", "uuid", "chrono", "offline" ] }
-thiserror = "1.0.20"
+thiserror = "1.0.22"
 base64 = "0.13.0"
 serde = "1.0.116"
-flate2 = "1.0.17"
+flate2 = "1.0.19"
 bytes = "0.5.6"
 tracing-futures = "0.2.4"
 uuid = {version = "0.8.1", features = ["v4"]}
 rand = "0.7.3"
 samael = { git = "https://github.com/nick96/samael", rev = "59fe9f762d72865ea9f8fdde888f6f211e894eb8", features = ["usexmlsec"] }
-askama = "0.10.3"
+askama = "0.10.5"
 serde_json = "1.0.59"
 
 [dev-dependencies]
