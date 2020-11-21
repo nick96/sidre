@@ -3,10 +3,19 @@ updates:
 - package-ecosystem: docker
   directory: "/docker"
   schedule:
-    interval: daily
+    interval: weekly
   open-pull-requests-limit: 10
+  labels:
+    - "docker"
+    - "dependencies"
+# Dependabot understands cargo workspaces so even though the Cargo.toml that
+# defines sidre's dependencies is in a different directory, dependabot is able
+# to find it.
 - package-ecosystem: cargo
   directory: "/"
   schedule:
     interval: daily
   open-pull-requests-limit: 10
+  labels:
+    - "cargo"
+    - "dependencies"
