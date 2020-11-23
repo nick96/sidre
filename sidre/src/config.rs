@@ -15,7 +15,6 @@ impl Serialize for NameIdFormat {
     }
 }
 
-
 impl Default for NameIdFormat {
     fn default() -> Self {
         NameIdFormat(samael::metadata::NameIdFormat::EmailAddressNameIDFormat)
