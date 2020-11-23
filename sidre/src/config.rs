@@ -51,7 +51,6 @@ pub async fn idp_config_handler(
 
 #[tracing::instrument(level = "info")]
 pub async fn idp_sp_config_handler(idp_id: String, sp_id: String) -> Result<impl Reply, Rejection> {
-    tracing::debug!("Received SP config: {:?}", config.clone());
     Ok(Response::builder().status(501).body("".into()))
 }
 
