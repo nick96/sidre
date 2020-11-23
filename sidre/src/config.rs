@@ -1,22 +1,24 @@
-use serde::{Deserialize, Serialize};
+use serde::{ser::Serializer, Deserialize, Serialize};
 use sqlx::postgres::PgPool;
 use std::collections::HashMap;
 use warp::{http::Response, Rejection, Reply};
-use serde::ser::Serialize;
 
+#[derive(Deserialize, Debug, Clone)]
 struct NameIdFormat(samael::metadata::NameIdFormat);
 
 impl Serialize for NameIdFormat {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
-        let mut ser = serializer.serialize_str(self.0.value())
+        serializer.serialize_str(self.0.value())
     }
 }
 
+
 impl Default for NameIdFormat {
     fn default() -> Self {
-        Self::EmailAddressNameIDFormat
+        NameIdFormat(samael::metadata::NameIdFormat::EmailAddressNameIDFormat)
     }
 }
 
@@ -61,12 +63,12 @@ pub async fn idp_config_handler(
     config: IdentityProviderConfig,
 ) -> Result<impl Reply, Rejection> {
     tracing::debug!("Received IdP config: {:?}", config.clone());
-    Ok(Response::builder().status(501).body("".into()))
+    Ok(Response::builder().status(501).body(""))
 }
 
 #[tracing::instrument(level = "info")]
 pub async fn idp_sp_config_handler(idp_id: String, sp_id: String) -> Result<impl Reply, Rejection> {
-    Ok(Response::builder().status(501).body("".into()))
+    Ok(Response::builder().status(501).body(""))
 }
 
 #[cfg(test)]
