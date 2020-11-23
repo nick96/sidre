@@ -1,4 +1,3 @@
-use crate::error::Error;
 use samael::metadata::NameIdFormat;
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgPool;
