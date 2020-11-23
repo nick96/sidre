@@ -12,7 +12,7 @@ warp = "0.2"
 tracing = "0.1.21"
 tracing-subscriber = "0.2.15"
 chrono = "0.4.18"
-sqlx = { version = "0.4.0", features = [ "runtime-tokio", "macros", "postgres", "uuid", "chrono", "offline" ] }
+sqlx = { version = "0.4.0", features = [ "runtime-tokio-native-tls", "macros", "postgres", "uuid", "chrono", "offline" ] }
 thiserror = "1.0.22"
 base64 = "0.13.0"
 serde = "1.0.116"
