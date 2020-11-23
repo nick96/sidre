@@ -1,8 +1,24 @@
-use samael::metadata::NameIdFormat;
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgPool;
 use std::collections::HashMap;
 use warp::{http::Response, Rejection, Reply};
+use serde::ser::Serialize;
+
+struct NameIdFormat(samael::metadata::NameIdFormat);
+
+impl Serialize for NameIdFormat {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer
+    {
+        let mut ser = serializer.serialize_str(self.0.value())
+    }
+}
+
+impl Default for NameIdFormat {
+    fn default() -> Self {
+        Self::EmailAddressNameIDFormat
+    }
+}
 
 /// User the IdP can return an assertion for.
 #[derive(Serialize, Deserialize, Debug, Clone)]
