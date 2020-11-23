@@ -1,9 +1,15 @@
 [package]
 name = "sidre"
+description = "A SAML identity provider factory for dev and test"
 version = "0.0.1"
 authors = ["Nick Spain <nicholas.spain96@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
+homepage = "https://github.com/nick96/sidre"
+repository = "https://github.com/nick96/sidre"
+readme = "../README.md"
+keywords = ["saml", "identity-provider", "idp"]
+categories = ["development-tools"]
 
 
 [dependencies]
