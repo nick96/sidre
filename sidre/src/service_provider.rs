@@ -1,9 +1,8 @@
 use crate::{error::Error, identity_provider::ensure_idp};
-use bytes::{Buf, Bytes};
 use samael::metadata::{EntityDescriptor, NameIdFormat};
 use sqlx::postgres::PgPool;
 use std::str::FromStr;
-use warp::{http::Response, Rejection, Reply};
+use warp::{http::Response, Rejection, Reply, hyper::body::Bytes};
 
 /// Row in the `sps` table.
 #[derive(sqlx::FromRow)]
