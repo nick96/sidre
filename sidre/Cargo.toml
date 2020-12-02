@@ -29,6 +29,7 @@ rand = "0.7.3"
 samael = { git = "https://github.com/nick96/samael", rev = "59fe9f762d72865ea9f8fdde888f6f211e894eb8", features = ["usexmlsec"] }
 askama = "0.10.5"
 serde_json = "1.0.59"
+bytes = "0.5.6"
 
 [dev-dependencies]
 roxmltree = "0.13.0"
