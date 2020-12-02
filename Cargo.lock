@@ -1927,7 +1927,6 @@ version = "0.0.1"
 dependencies = [
  "askama",
  "base64 0.13.0",
- "bytes",
  "chrono",
  "flate2",
  "rand 0.7.3",
