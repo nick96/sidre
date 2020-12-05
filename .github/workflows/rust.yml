@@ -16,22 +16,22 @@ jobs:
     - uses: actions/checkout@v2
     - name: Start aux services
       run: docker-compose up -d pg
-    - name: Run migrations
-      run: ./scripts/migrate.sh
+    # - name: Run migrations
+    #   run: ./scripts/migrate.sh
     - name: Run Test
       run: docker-compose run sidre-test cargo test --verbose
   # Make sure sqlx-data.json is up-to-date with the latest migrations. This allows
   # us to develop without requiring postgres instance to be running.
-  sqlx-data:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
-    - name: Start database
-      run: docker-compose up -d pg
-    - name: Run migrations
-      run: ./scripts/migrate.sh
-    - name: Check sqlx data
-      run: docker-compose run --workdir=/workspace/sidre sidre-test cargo sqlx prepare --check -- --bin sidre
+  # sqlx-data:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #   - name: Start database
+  #     run: docker-compose up -d pg
+  #   - name: Run migrations
+  #     run: ./scripts/migrate.sh
+  #   - name: Check sqlx data
+  #     run: docker-compose run --workdir=/workspace/sidre sidre-test cargo sqlx prepare --check -- --bin sidre
   formatting:
     runs-on: ubuntu-20.04
     steps:

@@ -1,4 +1,6 @@
-use crate::{error::Error, identity_provider::IdP, service_provider::ServideProviderRow};
+use crate::{
+    error::Error, identity_provider::IdP, service_provider::ServiceProvider, store::Store,
+};
 use askama::Template;
 use flate2::read::DeflateDecoder;
 use rand::Rng;
@@ -9,8 +11,7 @@ use samael::{
     metadata::NameIdFormat,
 };
 use serde::Deserialize;
-use sqlx::PgPool;
-use std::io::Read;
+use std::{io::Read, sync::Arc};
 use warp::{http, Rejection, Reply};
 
 #[derive(Template)]
@@ -69,12 +70,12 @@ fn dig_issuer(request: &UnverifiedAuthnRequest) -> Result<String, Error> {
         .ok_or(Error::MissingAuthnRequestIssuer)
 }
 
-#[tracing::instrument(level = "info", skip(db, saml_request, relay_state, id))]
-async fn run_login(
+#[tracing::instrument(level = "info", skip(store, saml_request, relay_state, id))]
+async fn run_login<S: Store>(
     id: String,
     saml_request: String,
     relay_state: Option<String>,
-    db: &PgPool,
+    store: Arc<S>,
 ) -> Result<String, Error> {
     tracing::debug!("Running login for IdP {}", id);
     tracing::debug!("Relay state: {:?}", relay_state);
@@ -100,7 +101,7 @@ async fn run_login(
             FROM idps WHERE id = $1",
         id
     )
-    .fetch_one(db)
+    .fetch_one(store)
     .await
     .map_err(move |e: sqlx::Error| match e {
         sqlx::Error::RowNotFound => {
@@ -113,9 +114,9 @@ async fn run_login(
         }
     })?;
 
-    let sp: ServideProviderRow = sqlx::query_as("SELECT * FROM sps WHERE entity_id = $1")
+    let sp: ServiceProvider = sqlx::query_as("SELECT * FROM sps WHERE entity_id = $1")
         .bind(issuer.clone())
-        .fetch_one(db)
+        .fetch_one(store)
         .await
         .map_err(|e: sqlx::Error| match e {
             // We want to differentiate between no SP with the given ID not existing and other errors. Because not existing is a 404
@@ -205,15 +206,15 @@ async fn run_login(
 /// which submits a form containing the SAML response and the  relay state (optional)
 /// to the service provider's assertion consumer service (usually just a specific)
 /// endpoint of the app.
-#[tracing::instrument(level = "info", skip(db, query))]
-pub async fn login_handler(
+#[tracing::instrument(level = "info", skip(store, query))]
+pub async fn login_handler<S: Store>(
     id: String,
     query: LoginRequestParams,
-    db: PgPool,
+    store: Arc<S>,
 ) -> Result<impl Reply, Rejection> {
     tracing::info!("id={}", id);
     tracing::debug!("Query params: {:?}", query);
-    match run_login(id, query.saml_request, query.relay_state, &db).await {
+    match run_login(id, query.saml_request, query.relay_state, store).await {
         Ok(form) => Ok(http::Response::builder()
             .status(200)
             .header(warp::http::header::CONTENT_TYPE, "text/html")

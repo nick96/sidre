@@ -7,6 +7,6 @@ RUN curl -L https://github.com/rust-analyzer/rust-analyzer/releases/latest/downl
 
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends \
-        pkg-config libssl-dev build-essential xml-security-c-utils libxmlsec1-dev libclang-dev clang llvm libxml2-dev
+        pkg-config libssl-dev build-essential xml-security-c-utils libxmlsec1-dev libclang-dev clang llvm libxml2-dev lld
 
 WORKDIR /workspace

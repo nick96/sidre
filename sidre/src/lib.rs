@@ -1,18 +1,21 @@
 mod config;
-mod db;
 mod error;
 mod generation;
 mod identity_provider;
 mod login;
 mod service_provider;
+mod store;
+
+use std::sync::Arc;
 
 use crate::{
     config::{idp_config_handler, idp_sp_config_handler, IdentityProviderConfig},
-    db::{create_db_pool, with_db},
     identity_provider::get_idp_metadata_handler,
     login::{login_handler, LoginRequestParams},
     service_provider::upsert_sp_metadata_handler,
+    store::with_store,
 };
+use store::Store;
 use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{Filter, Rejection, Reply};
 
@@ -20,10 +23,10 @@ use warp::{Filter, Rejection, Reply};
 ///
 /// This will setup:
 ///     - Logging and tracing
-///     - Database pool injection
+///     - Store injection
 ///     - Routing
-#[tracing::instrument(level = "info")]
-pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+#[tracing::instrument(level = "info", skip(store))]
+pub async fn app<S: Store + Send + Sync>(store: Arc<S>) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     let filter =
         std::env::var("RUST_LOG").unwrap_or_else(|_| "tracing=info,sider=debug".to_owned());
 
@@ -32,19 +35,17 @@ pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clo
         .with_span_events(FmtSpan::CLOSE)
         .try_init();
 
-    let db = create_db_pool().await;
-
     let idp_metadata = warp::get().and(
         warp::path!(String / "metadata")
             .and(warp::header("Host"))
-            .and(with_db(db.clone()))
+            .and(with_store(store.clone()))
             .and_then(get_idp_metadata_handler)
             .with(warp::trace::named("get-idp-metadata")),
     );
 
     let sp_metadata = warp::post().and(
         warp::path!(String / String / "metadata")
-            .and(with_db(db.clone()))
+            .and(with_store(store.clone()))
             .and(warp::body::bytes())
             .and_then(upsert_sp_metadata_handler)
             .with(warp::trace::named("upsert-sp-metadata")),
@@ -53,7 +54,7 @@ pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clo
     let login = warp::get().and(
         warp::path!(String / "sso")
             .and(warp::query::<LoginRequestParams>())
-            .and(with_db(db.clone()))
+            .and(with_store(store.clone()))
             .and_then(login_handler)
             .with(warp::trace::named("login")),
     );
@@ -61,9 +62,9 @@ pub async fn app() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clo
     let config = warp::post()
         .and(
             warp::path!(String / "config")
-                .and(with_db(db))
+                .and(with_store(store))
                 .and(warp::body::json::<IdentityProviderConfig>())
-                .and_then(idp_config_handler)
+                .and_then(idp_config_handler::<S>)
                 .with(warp::trace::named("config-idp")),
         )
         .or(warp::path!(String / String / "config")

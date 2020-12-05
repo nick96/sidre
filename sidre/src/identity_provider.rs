@@ -1,4 +1,6 @@
-use crate::error::Error;
+use std::sync::Arc;
+
+use crate::{error::Error, store::Store};
 use chrono::{DateTime, Duration, Utc};
 use samael::{
     idp::{CertificateParams, IdentityProvider, KeyType},
@@ -8,7 +10,6 @@ use samael::{
         HTTP_POST_BINDING,
     },
 };
-use sqlx::postgres::PgPool;
 use warp::{http::Response, Rejection, Reply};
 
 // Nothing in particular, 1000 just seems long enough to not be a pain in dev.
@@ -81,8 +82,8 @@ impl IdP {
 /// If an IdP with `id` already exists, just get it. Otherwise, construct the
 /// required parts (e.g. certificate), insert them in the database, and return
 /// the identity provider.
-#[tracing::instrument(level = "info", skip(db))]
-pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP, Error> {
+#[tracing::instrument(level = "info", skip(store))]
+pub(crate) async fn ensure_idp<S: Store>(store: Arc<S>, id: &str, host: &str) -> Result<IdP, Error> {
     match sqlx::query_as!(
         IdP,
         "
@@ -96,7 +97,7 @@ pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP,
             FROM idps WHERE id = $1",
         id
     )
-    .fetch_one(db)
+    .fetch_one(store)
     .await
     {
         Ok(idp) => {
@@ -142,7 +143,7 @@ pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP,
                 name_id_format,
                 redirect_url
             )
-            .execute(db)
+            .execute(store)
             .await?;
 
             tracing::info!("Created IDP {}", id);
@@ -167,13 +168,13 @@ pub(crate) async fn ensure_idp(db: &PgPool, id: &str, host: &str) -> Result<IdP,
 /// metadata. The IdP will be created if it doesn't already exists and the
 /// metadata returned. This handler is idempotent in that subsequent requests
 /// will return the same metadata.
-#[tracing::instrument(level = "info", skip(db))]
-pub async fn get_idp_metadata_handler(
+#[tracing::instrument(level = "info", skip(store))]
+pub async fn get_idp_metadata_handler<S: Store>(
     id: String,
     host: String,
-    db: PgPool,
+    store: Arc<S>,
 ) -> Result<impl Reply, Rejection> {
-    match ensure_idp(&db, &id, &host).await {
+    match ensure_idp(store, &id, &host).await {
         Ok(idp) => match idp.metadata().to_xml() {
             Ok(metadata) => Ok(Response::builder()
                 .header(warp::http::header::CONTENT_TYPE, "application/xml")

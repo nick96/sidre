@@ -12,8 +12,8 @@ pub enum Error {
     DeflateDecodeError(#[from] std::io::Error),
     #[error("Failed to render template: {0}")]
     TemplateError(#[from] askama::Error),
-    #[error("Database error: {0}")]
-    DatabaseError(#[from] sqlx::Error),
+    // #[error("Database error: {0}")]
+    // DatabaseError(#[from] sqlx::Error),
     #[error("Missing field {0}")]
     MissingField(String),
     #[error("Text is not valid UTF8: {0}")]

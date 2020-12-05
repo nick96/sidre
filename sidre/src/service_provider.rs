@@ -1,13 +1,10 @@
-use crate::{error::Error, identity_provider::ensure_idp};
+use crate::{error::Error, identity_provider::ensure_idp, store::Store};
 use bytes::{Buf, Bytes};
 use samael::metadata::{EntityDescriptor, NameIdFormat};
-use sqlx::postgres::PgPool;
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 use warp::{http::Response, Rejection, Reply};
 
-/// Row in the `sps` table.
-#[derive(sqlx::FromRow)]
-pub struct ServideProviderRow {
+pub struct ServiceProvider {
     /// ID uniquely identifying the servide provider. This is what is used to
     /// reference the SP in the URL.
     pub id: String,
@@ -19,16 +16,15 @@ pub struct ServideProviderRow {
     /// POST endpoint but future configuration options may allow for more.
     pub consume_endpoint: String,
     /// Keys (certificates) associated with the service provider.
-    #[sqlx(default)]
     pub keys: Vec<Vec<u8>>,
 }
 
 /// Create the servide provider from the specified attributes and link it to
 /// the identity provider identified by `idp_id`.
 #[allow(clippy::unit_arg)] // TODO: Figure out what's causing this lint error.
-#[tracing::instrument(level = "info", skip(db, certificates), err)]
-async fn create_service_provider(
-    db: &PgPool,
+#[tracing::instrument(level = "info", skip(store, certificates), err)]
+async fn create_service_provider<S: Store>(
+    store: Arc<S>,
     idp_id: &str,
     sp_id: &str,
     entity_id: &str,
@@ -36,9 +32,9 @@ async fn create_service_provider(
     consume_endpoint: &str,
     certificates: Vec<&str>,
 ) -> Result<(), Error> {
-    let mut tx = db.begin().await?;
+    let mut tx = store.begin().await?;
     ensure_idp(
-        db,
+        store,
         idp_id,
         &std::env::var("HOST").unwrap_or_else(|_| "localhost:8080".into()),
     )
@@ -152,11 +148,11 @@ fn dig_entity_id(metadata: &EntityDescriptor) -> Result<String, Error> {
 ///
 /// If the SP doesn't alreay exists it is created but if it does, then it is
 /// just updated.
-#[tracing::instrument(level = "info", skip(db, body))]
-async fn upsert_sp_metadata(
+#[tracing::instrument(level = "info", skip(store, body))]
+async fn upsert_sp_metadata<S: Store>(
     idp_id: &str,
     sp_id: &str,
-    db: &PgPool,
+    store: Arc<S>,
     body: Bytes,
 ) -> Result<(), Error> {
     let metadata = EntityDescriptor::from_str(std::str::from_utf8(body.bytes())?)?;
@@ -170,7 +166,7 @@ async fn upsert_sp_metadata(
 
     // TODO-correctness: Actually upsert SP.
     create_service_provider(
-        db,
+        store,
         idp_id,
         sp_id,
         &entity_id,
@@ -189,14 +185,14 @@ async fn upsert_sp_metadata(
 /// provider metadata and linking it to the identity provider specified by
 /// `idp_id`. Currently the IdP must already exist but in the interest of making
 /// setup easy, it might be worth looking into ensuring the IdP exists here.
-#[tracing::instrument(level = "info", skip(db, body))]
-pub async fn upsert_sp_metadata_handler(
+#[tracing::instrument(level = "info", skip(store, body))]
+pub async fn upsert_sp_metadata_handler<S: Store>(
     idp_id: String,
     sp_id: String,
-    db: PgPool,
+    store: Arc<S>,
     body: Bytes,
 ) -> Result<impl Reply, Rejection> {
-    match upsert_sp_metadata(&idp_id, &sp_id, &db, body).await {
+    match upsert_sp_metadata(&idp_id, &sp_id, store, body).await {
         Ok(()) => Ok(Response::builder().status(201).body("")),
         Err(err @ Error::SamaelEntityDescriptorError(_)) => {
             tracing::warn!("Received invalid XML doc for SP metadata: {}", err);

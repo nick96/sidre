@@ -1,3 +1,7 @@
+pub struct Store {}
+
+impl crate::store::Store for Store {}
+
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use warp::Filter;
 
