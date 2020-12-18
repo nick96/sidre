@@ -63,10 +63,6 @@ pub trait Store {
     ) -> Result<identity_provider::IdP>;
 }
 
-// Make sure things are configured correctl. We need either `data-in-memory` OR `postgres-persistent`.
-#[cfg(all(feature = "data-in-memory", feature = "postgres-persistent"))]
-compile_error!("Either dadta-in-memory or postgres-peristent must be enabled, not both");
-
 #[cfg(feature = "postgres-persistent")]
 compile_error!("Not implemented");
 
@@ -89,4 +85,20 @@ pub fn with_store<S: Store + Send + Sync + Clone>(
     store: S,
 ) -> impl Filter<Extract = (S,), Error = std::convert::Infallible> + Clone {
     warp::any().map(move || store.clone())
+}
+
+#[cfg(test)]
+pub fn get_store_for_test() -> impl Store + Clone {
+    if cfg!(feature = "data-in-memory") && !cfg!(feature = "postgres-persistent") {
+        MemoryStore::new()
+    } else if cfg!(feature = "postgres-persistent") && !cfg!(feature = "data-in-memory") {
+        unimplemented!()
+    } else {
+        let store_type = std::env::var("SIDRE_STORE_TYPE").unwrap_or_else(|_| "store".into());
+        match &store_type[..] {
+            "memory" => MemoryStore::new(),
+            "persistent" => unimplemented!(),
+            _ => panic!("Unknown store type in SIDRE_STORE_TYPE '{}'", store_type),
+        }
+    }
 }

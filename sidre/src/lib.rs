@@ -84,6 +84,7 @@ pub async fn app<S: Store + Send + Sync + Clone>(
 mod test {
     use super::*;
     use rand::Rng;
+    use store::get_store_for_test;
 
     fn random_string() -> String {
         rand::thread_rng()
@@ -95,7 +96,8 @@ mod test {
     #[tokio::test]
     async fn test_metadata_same_idp_id_same_metadata() {
         let idp_id = random_string();
-        let filter = app().await;
+        let store = get_store_for_test();
+        let filter = app(store).await;
         let first_resp = warp::test::request()
             .header("Host", "http://localhost:8080")
             .path(&format!("/{}/metadata", idp_id))
@@ -116,7 +118,8 @@ mod test {
     async fn test_metadata_different_idp_different_metadata() {
         let idp_id = random_string();
         let idp2_id = random_string();
-        let filter = app().await;
+        let store = get_store_for_test();
+        let filter = app(store).await;
         let first_resp = warp::test::request()
             .path(&format!("/{}/metadata", idp_id))
             .header("Host", "http://localhost:8080")

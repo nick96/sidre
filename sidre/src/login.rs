@@ -230,8 +230,8 @@ pub async fn login_handler<S: Store>(
 mod test {
     use super::run_login;
     use crate::app;
-    use crate::db::create_db_pool;
     use crate::identity_provider::ensure_idp;
+    use crate::store::get_store_for_test;
     use flate2::{write::DeflateEncoder, Compression};
     use rand::Rng;
     use samael::metadata::EntityDescriptor;
@@ -262,8 +262,8 @@ mod test {
                 .expect("Failed to convert saml_request.xml contents to UTF-8")
                 .to_string(),
         );
-        let db = create_db_pool().await;
-        run_login(idp_id.to_string(), encoded_request, relay_state, &db)
+        let store = get_store_for_test();
+        run_login(idp_id.to_string(), encoded_request, relay_state, store)
             .await
             .expect("Failed to run login")
     }
@@ -274,8 +274,8 @@ mod test {
         let idp_id = random_string();
         let host = random_string();
 
-        let db = create_db_pool().await;
-        let idp = ensure_idp(&db, &idp_id, &host).await.unwrap();
+        let store = get_store_for_test();
+        let idp = ensure_idp(store, &idp_id, &host).await.unwrap();
 
         let raw_response = run_login_with_test_data(&idp_id, None).await;
         let response = roxmltree::Document::parse(&raw_response).expect("Failed to parse response");
@@ -324,8 +324,8 @@ mod test {
         let idp_id = random_string();
         let host = random_string();
 
-        let db = create_db_pool().await;
-        let _ = ensure_idp(&db, &idp_id, &host).await.unwrap();
+        let store = get_store_for_test();
+        let _ = ensure_idp(store, &idp_id, &host).await.unwrap();
         let expected_relay_state = random_string();
 
         let raw_response =
@@ -350,8 +350,9 @@ mod test {
 
     #[tokio::test]
     async fn test_cert_in_metadata_same_as_cert_in_response() {
+        let store = get_store_for_test();
         let idp_id = random_string();
-        let filter = app().await;
+        let filter = app(store).await;
         let metadata_response = warp::test::request()
             .header("Host", "http://localhost:8080")
             .path(&format!("/{}/metadata", idp_id))
