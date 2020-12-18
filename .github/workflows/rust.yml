@@ -37,7 +37,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Check formatting
-      run: docker-compose run sidre-test cargo +stable fmt -- --check
+      run: docker-compose run sidre-test cargo +nightly fmt -- --check
   clippy:
     runs-on: ubuntu-20.04
     steps:
