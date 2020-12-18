@@ -1,8 +1,10 @@
-use crate::{error::Error, identity_provider::ensure_idp, store::Store};
+use std::str::FromStr;
+
 use bytes::{Buf, Bytes};
 use samael::metadata::{EntityDescriptor, NameIdFormat};
-use std::str::FromStr;
 use warp::{http::Response, Rejection, Reply};
+
+use crate::{error::Error, identity_provider::ensure_idp, store::Store};
 
 pub struct ServiceProvider {
     /// ID uniquely identifying the servide provider. This is what is used to
@@ -87,9 +89,12 @@ fn dig_consume_endpoint(metadata: &EntityDescriptor) -> Result<String, Error> {
     let asc = descriptor
         .assertion_consumer_services
         .first()
-        .ok_or_else(|| Error::MissingField("AssertionConsumerService".to_string()))?
+        .ok_or_else(|| {
+            Error::MissingField("AssertionConsumerService".to_string())
+        })?
         .to_owned();
-    // TODO-correctness: Associate the binding as well. At the moment we're just assuming HTTP-POST.
+    // TODO-correctness: Associate the binding as well. At the moment we're just
+    // assuming HTTP-POST.
     Ok(asc.location)
 }
 
@@ -136,13 +141,17 @@ async fn upsert_sp_metadata<S: Store + Clone>(
     store: S,
     body: Bytes,
 ) -> Result<(), Error> {
-    let metadata = EntityDescriptor::from_str(std::str::from_utf8(body.bytes())?)?;
+    let metadata =
+        EntityDescriptor::from_str(std::str::from_utf8(body.bytes())?)?;
     let entity_id = dig_entity_id(&metadata)?;
-    // TODO-correctness: Store all the different name ID formats for the different descriptors.
+    // TODO-correctness: Store all the different name ID formats for the
+    // different descriptors.
     let name_id_format = dig_name_id_format(&metadata)?;
-    // TODO-correctness: Store all the different consumer service endpoints for the different descriptors.
+    // TODO-correctness: Store all the different consumer service endpoints for
+    // the different descriptors.
     let consume_endpoint = dig_consume_endpoint(&metadata)?;
-    // TODO-correctness: Retrieve all the keys, not just the first, and store metadata such as "use".
+    // TODO-correctness: Retrieve all the keys, not just the first, and store
+    // metadata such as "use".
     let b64_sp_cert = dig_certificate(&metadata)?;
 
     // TODO-correctness: Actually upsert SP.
@@ -178,24 +187,25 @@ pub async fn upsert_sp_metadata_handler<S: Store + Clone>(
         Err(err @ Error::SamaelEntityDescriptorError(_)) => {
             tracing::warn!("Received invalid XML doc for SP metadata: {}", err);
             Ok(Response::builder().status(400).body(""))
-        }
+        },
         Err(err @ Error::MissingField(_)) => {
             tracing::warn!("Received SP metadata with missing field: {}", err);
             Ok(Response::builder().status(400).body(""))
-        }
+        },
         Err(e) => {
             tracing::error!("Upserting SP metadata failed: {}", e);
             Ok(Response::builder().status(500).body(""))
-        }
+        },
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::create_service_provider;
-    use crate::store::{get_store_for_test, Store};
     use chrono::{DateTime, Utc};
     use rand::Rng;
+
+    use super::create_service_provider;
+    use crate::store::{get_store_for_test, Store};
 
     #[derive(PartialEq, Debug)]
     struct CreatedAtAndModifiedAt {
@@ -216,9 +226,10 @@ mod test {
         let idp_id = random_string();
         let sp_id = random_string();
         let entity_id = random_string();
-        let name_id_format = samael::metadata::NameIdFormat::EmailAddressNameIDFormat
-            .value()
-            .to_string();
+        let name_id_format =
+            samael::metadata::NameIdFormat::EmailAddressNameIDFormat
+                .value()
+                .to_string();
         let consume_endpoint = random_string();
         let exists = store.service_provider_exists(&sp_id).await.unwrap();
         assert!(!exists);
@@ -243,7 +254,8 @@ mod test {
     //     let idp_id = random_string();
     //     let sp_id = random_string();
     //     let entity_id = random_string();
-    //     let name_id_format = samael::metadata::NameIdFormat::EmailAddressNameIDFormat
+    //     let name_id_format =
+    // samael::metadata::NameIdFormat::EmailAddressNameIDFormat
     //         .value()
     //         .to_string();
     //     let consume_endpoint = random_string();

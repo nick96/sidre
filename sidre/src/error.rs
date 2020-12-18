@@ -2,8 +2,9 @@ use thiserror::Error;
 
 /// Errors used within the app.
 ///
-/// The names should be pretty self explanatory. It might be worth looking at breaking this down
-/// into per app component errors as it's getting pretty large.
+/// The names should be pretty self explanatory. It might be worth looking at
+/// breaking this down into per app component errors as it's getting pretty
+/// large.
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Failed to decode base64: {0}")]

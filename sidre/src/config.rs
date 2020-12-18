@@ -1,7 +1,9 @@
-use crate::store::Store;
-use serde::{ser::Serializer, Deserialize, Serialize};
 use std::collections::HashMap;
+
+use serde::{ser::Serializer, Deserialize, Serialize};
 use warp::{http::Response, Rejection, Reply};
+
+use crate::store::Store;
 
 #[derive(Deserialize, Debug, Clone)]
 struct NameIdFormat(samael::metadata::NameIdFormat);
@@ -27,9 +29,10 @@ pub struct User {
     /// Namne ID for the user. This is in the format specified by
     /// [IdentityProviderConifg.name_id_format].
     name_id: String,
-    /// Mapping of attributes names to their value. This allows providing custom
-    /// information about users. You can use the [ServideProviderConfig.attribute_mapping]
-    /// to map these to the attribute types returned in the assertion.
+    /// Mapping of attributes names to their value. This allows providing
+    /// custom information about users. You can use the
+    /// [ServideProviderConfig.attribute_mapping] to map these to the
+    /// attribute types returned in the assertion.
     attributes: HashMap<String, String>,
 }
 
@@ -50,8 +53,8 @@ struct ServideProviderConfig {
     /// Sign the SAML response itself, otherwise just the assertion is signed.
     sign_response: bool,
     /// Mapping of attributes in the IdP's user store
-    /// ([IdentityProviderConfig.user_store]) to those understood by the service
-    /// provider.
+    /// ([IdentityProviderConfig.user_store]) to those understood by the
+    /// service provider.
     attribute_mapping: HashMap<String, String>,
 }
 
@@ -66,7 +69,10 @@ pub async fn idp_config_handler<S: Store>(
 }
 
 #[tracing::instrument(level = "info")]
-pub async fn idp_sp_config_handler(idp_id: String, sp_id: String) -> Result<impl Reply, Rejection> {
+pub async fn idp_sp_config_handler(
+    idp_id: String,
+    sp_id: String,
+) -> Result<impl Reply, Rejection> {
     Ok(Response::builder().status(501).body(""))
 }
 

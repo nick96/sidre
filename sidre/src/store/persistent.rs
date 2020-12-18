@@ -11,7 +11,10 @@ impl crate::store::Store for Store {
         todo!()
     }
 
-    async fn service_provider_exists(&self, entity_id: &str) -> super::Result<bool> {
+    async fn service_provider_exists(
+        &self,
+        entity_id: &str,
+    ) -> super::Result<bool> {
         todo!()
     }
 
@@ -43,7 +46,10 @@ impl crate::store::Store for Store {
         todo!()
     }
 
-    async fn identity_provider_exists(&self, entity_id: &str) -> super::Result<bool> {
+    async fn identity_provider_exists(
+        &self,
+        entity_id: &str,
+    ) -> super::Result<bool> {
         todo!()
     }
 
@@ -75,16 +81,18 @@ use warp::Filter;
 /// Filter to inject the `PgPool` into the request handler.
 pub fn with_db(
     db: PgPool,
-) -> impl Filter<Extract = (PgPool,), Error = std::convert::Infallible> + Clone {
+) -> impl Filter<Extract = (PgPool,), Error = std::convert::Infallible> + Clone
+{
     warp::any().map(move || db.clone())
 }
 
 /// Create a postgres database pool.
 ///
-/// The `DATABASE_URL` environment variable must be present, otherwise, this will blow up. If it
-/// fails to create the database pool, it will also blow up.
+/// The `DATABASE_URL` environment variable must be present, otherwise, this
+/// will blow up. If it fails to create the database pool, it will also blow up.
 pub async fn create_db_pool() -> PgPool {
-    let url = std::env::var("DATABASE_URL").expect("No DATABASE_URL environment variable");
+    let url = std::env::var("DATABASE_URL")
+        .expect("No DATABASE_URL environment variable");
     PgPoolOptions::new()
         .max_connections(5)
         .connect(&url)
@@ -105,13 +113,14 @@ mod test {
 
     #[tokio::test]
     async fn test_create_db_pool_creates_pool() {
-        std::env::var("DATABASE_URL").expect("DATABASE_URL must exist for this test");
+        std::env::var("DATABASE_URL")
+            .expect("DATABASE_URL must exist for this test");
         let _ = create_db_pool();
     }
 
-    // TODO-test: Check that `create_db_pool` blows up when the env var isn't there
-    //  the code below breaks tests that use `create_db_pool` after it.
-    // Set DATABASE_URL to its old value once the test has run.
+    // TODO-test: Check that `create_db_pool` blows up when the env var isn't
+    // there  the code below breaks tests that use `create_db_pool` after
+    // it. Set DATABASE_URL to its old value once the test has run.
     // struct RestoreDatabaseUrlEnvVar(String);
     // impl Drop for RestoreDatabaseUrlEnvVar {
     //     fn drop(&mut self) {

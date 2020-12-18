@@ -6,16 +6,19 @@ mod login;
 mod service_provider;
 pub mod store;
 
+use store::Store;
+use tracing_subscriber::fmt::format::FmtSpan;
+use warp::{Filter, Rejection, Reply};
+
 use crate::{
-    config::{idp_config_handler, idp_sp_config_handler, IdentityProviderConfig},
+    config::{
+        idp_config_handler, idp_sp_config_handler, IdentityProviderConfig,
+    },
     identity_provider::get_idp_metadata_handler,
     login::{login_handler, LoginRequestParams},
     service_provider::upsert_sp_metadata_handler,
     store::with_store,
 };
-use store::Store;
-use tracing_subscriber::fmt::format::FmtSpan;
-use warp::{Filter, Rejection, Reply};
 
 /// Return a warp app with everything wired up.
 ///
@@ -27,8 +30,8 @@ use warp::{Filter, Rejection, Reply};
 pub async fn app<S: Store + Send + Sync + Clone>(
     store: S,
 ) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
-    let filter =
-        std::env::var("RUST_LOG").unwrap_or_else(|_| "tracing=info,sidre=debug".to_owned());
+    let filter = std::env::var("RUST_LOG")
+        .unwrap_or_else(|_| "tracing=info,sidre=debug".to_owned());
 
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)
@@ -78,13 +81,15 @@ pub async fn app<S: Store + Send + Sync + Clone>(
         .with(warp::trace::request())
 }
 
-// These tests are intended to make sure the routing is correct and the general high level logic is correct.
-// More fine grained stuff should be saved for the unit tests.
+// These tests are intended to make sure the routing is correct and the general
+// high level logic is correct. More fine grained stuff should be saved for the
+// unit tests.
 #[cfg(test)]
 mod test {
-    use super::*;
     use rand::Rng;
     use store::get_store_for_test;
+
+    use super::*;
 
     fn random_string() -> String {
         rand::thread_rng()
@@ -151,8 +156,8 @@ mod test {
         // TODO-test: Reenable this once config is implemented
         // let db = db::create_db_pool().await;
         // let idp_id = random_string();
-        // let _ = identity_provider::ensure_idp(&db, &random_string(), &random_string());
-        // let filter = app().await;
+        // let _ = identity_provider::ensure_idp(&db, &random_string(),
+        // &random_string()); let filter = app().await;
         // let resp = warp::test::request()
         //     .path(&format!("/{}/config", idp_id))
         //     .method("POST")

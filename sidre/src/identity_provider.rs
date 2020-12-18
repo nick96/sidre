@@ -1,17 +1,18 @@
-use crate::{
-    error::Error,
-    store::{self, Store},
-};
 use chrono::{DateTime, Duration, Utc};
 use samael::{
     idp::{CertificateParams, IdentityProvider, KeyType},
     key_info::{KeyInfo, X509Data},
     metadata::{
-        Endpoint, EntityDescriptor, IdpSsoDescriptor, KeyDescriptor, NameIdFormat,
-        HTTP_POST_BINDING,
+        Endpoint, EntityDescriptor, IdpSsoDescriptor, KeyDescriptor,
+        NameIdFormat, HTTP_POST_BINDING,
     },
 };
 use warp::{http::Response, Rejection, Reply};
+
+use crate::{
+    error::Error,
+    store::{self, Store},
+};
 
 // Nothing in particular, 1000 just seems long enough to not be a pain in dev.
 const CERT_EXPIRY_IN_DAYS: u32 = 1000;
@@ -25,8 +26,8 @@ pub struct IdP {
     /// Entity ID for the IdP.
     pub entity_id: String,
     /// Date until the metadata is valid. This is stored when the IdP is first
-    /// created by the ensure endpoint and used with subsequent requests to make
-    /// the endpoint idempotent.
+    /// created by the ensure endpoint and used with subsequent requests to
+    /// make the endpoint idempotent.
     pub metadata_valid_until: DateTime<Utc>,
     /// Certificate from the `private_key` so that service providers may verify
     /// assertions.
@@ -48,11 +49,15 @@ impl IdP {
             entity_id: Some(self.entity_id.clone()),
             valid_until: Some(self.metadata_valid_until),
             idp_sso_descriptors: Some(vec![IdpSsoDescriptor {
-                // TODO-config: Allow specifying the name ID formats to advertise.
-                name_id_formats: vec![NameIdFormat::EmailAddressNameIDFormat.value().to_string()],
+                // TODO-config: Allow specifying the name ID formats to
+                // advertise.
+                name_id_formats: vec![NameIdFormat::EmailAddressNameIDFormat
+                    .value()
+                    .to_string()],
                 single_sign_on_services: vec![Endpoint {
-                    // Hard code HTTP-POST binding as that's the most common. Re-evaluate this
-                    // if support for the others is needed in future. See here for the different
+                    // Hard code HTTP-POST binding as that's the most common.
+                    // Re-evaluate this if support for the
+                    // others is needed in future. See here for the different
                     // types of binding:
                     // https://en.wikipedia.org/wiki/SAML_2.0#SAML_2.0_bindings
                     binding: HTTP_POST_BINDING.to_string(),
@@ -64,7 +69,9 @@ impl IdP {
                     key_info: KeyInfo {
                         id: None,
                         x509_data: Some(X509Data {
-                            certificate: Some(base64::encode(self.certificate.clone())),
+                            certificate: Some(base64::encode(
+                                self.certificate.clone(),
+                            )),
                         }),
                     },
                     encryption_methods: None,
@@ -84,27 +91,35 @@ impl IdP {
 /// required parts (e.g. certificate), insert them in the database, and return
 /// the identity provider.
 #[tracing::instrument(level = "info", skip(store))]
-pub(crate) async fn ensure_idp<S: Store>(store: S, id: &str, host: &str) -> Result<IdP, Error> {
+pub(crate) async fn ensure_idp<S: Store>(
+    store: S,
+    id: &str,
+    host: &str,
+) -> Result<IdP, Error> {
     match store.get_identity_provider(id).await {
         Ok(idp) => {
             tracing::info!("IdP {} already exists, just returning", id);
             Ok(idp)
-        }
+        },
         Err(store::Error::NotFound(_)) => {
-            // TODO-config: Allow specifying the key type. Currently Samael only allows RSA keys. Does it make sense to allow Ed25519 as well?
+            // TODO-config: Allow specifying the key type. Currently Samael only
+            // allows RSA keys. Does it make sense to allow Ed25519 as well?
             let idp = IdentityProvider::generate_new(KeyType::Rsa4096)?;
             let entity_id = format!("http://{}/{}", host, id);
 
-            let certificate_der = idp.create_certificate(&CertificateParams {
-                common_name: &format!("{} (sidre)", id),
-                issuer_name: &entity_id,
-                days_until_expiration: CERT_EXPIRY_IN_DAYS,
-            })?;
+            let certificate_der =
+                idp.create_certificate(&CertificateParams {
+                    common_name: &format!("{} (sidre)", id),
+                    issuer_name: &entity_id,
+                    days_until_expiration: CERT_EXPIRY_IN_DAYS,
+                })?;
             let private_key = idp.export_private_key_der()?;
-            // TODO-config: Add a knob for the name ID format (email address and persistent ID are probably the most important).
+            // TODO-config: Add a knob for the name ID format (email address and
+            // persistent ID are probably the most important).
             let name_id_format = NameIdFormat::EmailAddressNameIDFormat.value();
             let redirect_url = format!("http://{}/{}/sso", host, id);
-            let metadata_valid_until = Utc::now() + Duration::days(CERT_EXPIRY_IN_DAYS as i64);
+            let metadata_valid_until =
+                Utc::now() + Duration::days(CERT_EXPIRY_IN_DAYS as i64);
 
             let identity_provider = store
                 .create_identity_provider(IdP {
@@ -121,7 +136,7 @@ pub(crate) async fn ensure_idp<S: Store>(store: S, id: &str, host: &str) -> Resu
             tracing::info!("Created IDP {}", id);
 
             Ok(identity_provider)
-        }
+        },
         Err(e) => Err(e.into()),
     }
 }
@@ -146,21 +161,22 @@ pub async fn get_idp_metadata_handler<S: Store>(
             Err(e) => {
                 tracing::error!("Failed to convert metadata to XML: {}", e);
                 Ok(Response::builder().status(500).body("".to_string()))
-            }
+            },
         },
         Err(e) => {
             tracing::error!("Failed to ensure IdP: {}", e);
             Ok(Response::builder().status(500).body("".to_string()))
-        }
+        },
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::store::get_store_for_test;
     use chrono::{DateTime, Utc};
     use rand::Rng;
+
+    use super::*;
+    use crate::store::get_store_for_test;
 
     #[derive(PartialEq, Debug)]
     struct CreatedAtAndModifiedAt {

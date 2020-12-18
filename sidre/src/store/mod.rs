@@ -45,13 +45,16 @@ pub trait Store {
     ) -> Result<service_provider::ServiceProvider>;
 
     /// Get the identity provider by their `entity_id`.
-    async fn get_identity_provider(&self, entity_id: &str) -> Result<identity_provider::IdP>;
+    async fn get_identity_provider(
+        &self,
+        entity_id: &str,
+    ) -> Result<identity_provider::IdP>;
 
     /// Check the identity provider exists by their `entity_id`.
     async fn identity_provider_exists(&self, entity_id: &str) -> Result<bool>;
 
-    /// Ensure the identity provider exists. If it does, just return it, otherwise
-    /// create it using the defaults and return it.
+    /// Ensure the identity provider exists. If it does, just return it,
+    /// otherwise create it using the defaults and return it.
     async fn ensure_identity_provider(
         &self,
         identity_provider: identity_provider::IdP,
@@ -89,16 +92,24 @@ pub fn with_store<S: Store + Send + Sync + Clone>(
 
 #[cfg(test)]
 pub fn get_store_for_test() -> impl Store + Clone {
-    if cfg!(feature = "data-in-memory") && !cfg!(feature = "postgres-persistent") {
+    if cfg!(feature = "data-in-memory")
+        && !cfg!(feature = "postgres-persistent")
+    {
         MemoryStore::new()
-    } else if cfg!(feature = "postgres-persistent") && !cfg!(feature = "data-in-memory") {
+    } else if cfg!(feature = "postgres-persistent")
+        && !cfg!(feature = "data-in-memory")
+    {
         unimplemented!()
     } else {
-        let store_type = std::env::var("SIDRE_STORE_TYPE").unwrap_or_else(|_| "store".into());
+        let store_type = std::env::var("SIDRE_STORE_TYPE")
+            .unwrap_or_else(|_| "store".into());
         match &store_type[..] {
             "memory" => MemoryStore::new(),
             "persistent" => unimplemented!(),
-            _ => panic!("Unknown store type in SIDRE_STORE_TYPE '{}'", store_type),
+            _ => panic!(
+                "Unknown store type in SIDRE_STORE_TYPE '{}'",
+                store_type
+            ),
         }
     }
 }

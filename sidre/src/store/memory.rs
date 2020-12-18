@@ -12,7 +12,10 @@ impl crate::store::Store for Store {
         todo!()
     }
 
-    async fn service_provider_exists(&self, entity_id: &str) -> super::Result<bool> {
+    async fn service_provider_exists(
+        &self,
+        entity_id: &str,
+    ) -> super::Result<bool> {
         todo!()
     }
 
@@ -30,7 +33,10 @@ impl crate::store::Store for Store {
         todo!()
     }
 
-    async fn identity_provider_exists(&self, entity_id: &str) -> super::Result<bool> {
+    async fn identity_provider_exists(
+        &self,
+        entity_id: &str,
+    ) -> super::Result<bool> {
         todo!()
     }
 
