@@ -1,7 +1,7 @@
 {
 	"name": "Sidre",
 	"dockerComposeFile": [
-		"docker-compose.yaml"
+		"docker-compose.vscode.yaml"
 	],
 	"service": "sidre-vscode",
 	"settings": {

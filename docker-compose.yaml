@@ -10,18 +10,6 @@ services:
         ports:
             - "5432:5432"
 
-    sidre-vscode:
-        build:
-            dockerfile: ../docker/Dockerfile.vscode
-            context: ./sidre
-        volumes:
-            - .:/workspace:cached
-        # ports:
-        #     - "8080:8080"
-        command: '/bin/sh -c "while sleep 1000; do :; done"'
-        environment:
-            DATABASE_URL: "postgres://sidre:password@pg/sidre"
-
     sidre-test:
         build:
             dockerfile: ./docker/Dockerfile.test
