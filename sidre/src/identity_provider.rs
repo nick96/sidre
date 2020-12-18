@@ -1,6 +1,7 @@
-use std::sync::Arc;
-
-use crate::{error::Error, store::Store};
+use crate::{
+    error::Error,
+    store::{self, Store},
+};
 use chrono::{DateTime, Duration, Utc};
 use samael::{
     idp::{CertificateParams, IdentityProvider, KeyType},
@@ -21,7 +22,7 @@ pub struct IdP {
     pub id: String,
     /// Private key used to sign the assertion. In DER format.
     pub private_key: Vec<u8>,
-    /// Entitu ID for the IdP.
+    /// Entity ID for the IdP.
     pub entity_id: String,
     /// Date until the metadata is valid. This is stored when the IdP is first
     /// created by the ensure endpoint and used with subsequent requests to make
@@ -83,28 +84,13 @@ impl IdP {
 /// required parts (e.g. certificate), insert them in the database, and return
 /// the identity provider.
 #[tracing::instrument(level = "info", skip(store))]
-pub(crate) async fn ensure_idp<S: Store>(store: Arc<S>, id: &str, host: &str) -> Result<IdP, Error> {
-    match sqlx::query_as!(
-        IdP,
-        "
-        SELECT id
-            , private_key
-            , entity_id
-            , metadata_valid_until
-            , certificate
-            , name_id_format
-            , redirect_url 
-            FROM idps WHERE id = $1",
-        id
-    )
-    .fetch_one(store)
-    .await
-    {
+pub(crate) async fn ensure_idp<S: Store>(store: S, id: &str, host: &str) -> Result<IdP, Error> {
+    match store.get_identity_provider(id).await {
         Ok(idp) => {
             tracing::info!("IdP {} already exists, just returning", id);
             Ok(idp)
         }
-        Err(sqlx::Error::RowNotFound) => {
+        Err(store::Error::NotFound(_)) => {
             // TODO-config: Allow specifying the key type. Currently Samael only allows RSA keys. Does it make sense to allow Ed25519 as well?
             let idp = IdentityProvider::generate_new(KeyType::Rsa4096)?;
             let entity_id = format!("http://{}/{}", host, id);
@@ -120,43 +106,21 @@ pub(crate) async fn ensure_idp<S: Store>(store: Arc<S>, id: &str, host: &str) ->
             let redirect_url = format!("http://{}/{}/sso", host, id);
             let metadata_valid_until = Utc::now() + Duration::days(CERT_EXPIRY_IN_DAYS as i64);
 
-            sqlx::query!(
-                r#"
-                INSERT INTO idps(
-                    id
-                    , certificate
-                    , private_key
-                    , entity_id
-                    , metadata_valid_until
-                    , name_id_format
-                    , redirect_url
-                )
-                VALUES (
-                    $1, $2, $3, $4, $5, $6, $7
-                )
-                "#,
-                id,
-                certificate_der,
-                private_key,
-                entity_id,
-                metadata_valid_until,
-                name_id_format,
-                redirect_url
-            )
-            .execute(store)
-            .await?;
+            let identity_provider = store
+                .create_identity_provider(IdP {
+                    id: id.into(),
+                    private_key,
+                    certificate: certificate_der,
+                    entity_id,
+                    metadata_valid_until,
+                    name_id_format: name_id_format.to_string(),
+                    redirect_url,
+                })
+                .await?;
 
             tracing::info!("Created IDP {}", id);
 
-            Ok(IdP {
-                id: id.into(),
-                private_key,
-                certificate: certificate_der,
-                entity_id,
-                metadata_valid_until,
-                name_id_format: name_id_format.to_string(),
-                redirect_url,
-            })
+            Ok(identity_provider)
         }
         Err(e) => Err(e.into()),
     }
@@ -172,7 +136,7 @@ pub(crate) async fn ensure_idp<S: Store>(store: Arc<S>, id: &str, host: &str) ->
 pub async fn get_idp_metadata_handler<S: Store>(
     id: String,
     host: String,
-    store: Arc<S>,
+    store: S,
 ) -> Result<impl Reply, Rejection> {
     match ensure_idp(store, &id, &host).await {
         Ok(idp) => match idp.metadata().to_xml() {

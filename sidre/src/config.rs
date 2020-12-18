@@ -1,6 +1,6 @@
 use crate::store::Store;
 use serde::{ser::Serializer, Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 use warp::{http::Response, Rejection, Reply};
 
 #[derive(Deserialize, Debug, Clone)]
@@ -58,7 +58,7 @@ struct ServideProviderConfig {
 #[tracing::instrument(level = "info", skip(config, store))]
 pub async fn idp_config_handler<S: Store>(
     id: String,
-    store: Arc<S>,
+    store: S,
     config: IdentityProviderConfig,
 ) -> Result<impl Reply, Rejection> {
     tracing::debug!("Received IdP config: {:?}", config.clone());

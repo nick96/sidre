@@ -5,7 +5,6 @@
 use async_trait::async_trait;
 use thiserror::Error;
 use warp::Filter;
-use std::sync::Arc;
 
 /// Possible errors returned by the store. The important thing is that we're
 /// diffentiating between not found, a client error, and other failures, a
@@ -40,6 +39,11 @@ pub trait Store {
         service_provider: service_provider::ServiceProvider,
     ) -> Result<service_provider::ServiceProvider>;
 
+    async fn create_service_provider(
+        &mut self,
+        service_provider: service_provider::ServiceProvider,
+    ) -> Result<service_provider::ServiceProvider>;
+
     /// Get the identity provider by their `entity_id`.
     async fn get_identity_provider(&self, entity_id: &str) -> Result<identity_provider::IdP>;
 
@@ -49,6 +53,11 @@ pub trait Store {
     /// Ensure the identity provider exists. If it does, just return it, otherwise
     /// create it using the defaults and return it.
     async fn ensure_identity_provider(
+        &mut self,
+        identity_provider: identity_provider::IdP,
+    ) -> Result<identity_provider::IdP>;
+
+    async fn create_identity_provider(
         &mut self,
         identity_provider: identity_provider::IdP,
     ) -> Result<identity_provider::IdP>;
@@ -76,8 +85,8 @@ pub use persistent::Store as PersistentStore;
 use crate::{identity_provider, service_provider};
 
 /// Filter to inject the `PgPool` into the request handler.
-pub fn with_store<S: Store + Send + Sync>(
-    store: Arc<S>,
-) -> impl Filter<Extract = (Arc<S>,), Error = std::convert::Infallible> + Clone {
+pub fn with_store<S: Store + Send + Sync + Clone>(
+    store: S,
+) -> impl Filter<Extract = (S,), Error = std::convert::Infallible> + Clone {
     warp::any().map(move || store.clone())
 }

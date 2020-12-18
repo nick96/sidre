@@ -11,7 +11,7 @@ use samael::{
     metadata::NameIdFormat,
 };
 use serde::Deserialize;
-use std::{io::Read, sync::Arc};
+use std::io::Read;
 use warp::{http, Rejection, Reply};
 
 #[derive(Template)]
@@ -75,7 +75,7 @@ async fn run_login<S: Store>(
     id: String,
     saml_request: String,
     relay_state: Option<String>,
-    store: Arc<S>,
+    store: S,
 ) -> Result<String, Error> {
     tracing::debug!("Running login for IdP {}", id);
     tracing::debug!("Relay state: {:?}", relay_state);
@@ -88,22 +88,9 @@ async fn run_login<S: Store>(
     let issuer = dig_issuer(&unverified_request)?;
     // Clone the ID here so we can use it when getting the SP as well.
     let idp_id = id.clone();
-    let idp: IdP = sqlx::query_as!(
-        IdP,
-        "
-        SELECT id
-            , private_key
-            , entity_id
-            , metadata_valid_until
-            , certificate
-            , name_id_format
-            , redirect_url 
-            FROM idps WHERE id = $1",
-        id
-    )
-    .fetch_one(store)
+    let idp: IdP = store.get_identity_provider(id)
     .await
-    .map_err(move |e: sqlx::Error| match e {
+    .map_err(move |e: crate::store::Error| match e {
         sqlx::Error::RowNotFound => {
             tracing::info!("No identity provider with ID {}", id);
             Error::IdentityProviderNotFound(id)
@@ -210,7 +197,7 @@ async fn run_login<S: Store>(
 pub async fn login_handler<S: Store>(
     id: String,
     query: LoginRequestParams,
-    store: Arc<S>,
+    store: S,
 ) -> Result<impl Reply, Rejection> {
     tracing::info!("id={}", id);
     tracing::debug!("Query params: {:?}", query);

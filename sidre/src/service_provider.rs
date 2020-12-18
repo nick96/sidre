@@ -1,7 +1,7 @@
 use crate::{error::Error, identity_provider::ensure_idp, store::Store};
 use bytes::{Buf, Bytes};
 use samael::metadata::{EntityDescriptor, NameIdFormat};
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
 use warp::{http::Response, Rejection, Reply};
 
 pub struct ServiceProvider {
@@ -24,7 +24,7 @@ pub struct ServiceProvider {
 #[allow(clippy::unit_arg)] // TODO: Figure out what's causing this lint error.
 #[tracing::instrument(level = "info", skip(store, certificates), err)]
 async fn create_service_provider<S: Store>(
-    store: Arc<S>,
+    store: S,
     idp_id: &str,
     sp_id: &str,
     entity_id: &str,
@@ -152,7 +152,7 @@ fn dig_entity_id(metadata: &EntityDescriptor) -> Result<String, Error> {
 async fn upsert_sp_metadata<S: Store>(
     idp_id: &str,
     sp_id: &str,
-    store: Arc<S>,
+    store: S,
     body: Bytes,
 ) -> Result<(), Error> {
     let metadata = EntityDescriptor::from_str(std::str::from_utf8(body.bytes())?)?;
@@ -189,7 +189,7 @@ async fn upsert_sp_metadata<S: Store>(
 pub async fn upsert_sp_metadata_handler<S: Store>(
     idp_id: String,
     sp_id: String,
-    store: Arc<S>,
+    store: S,
     body: Bytes,
 ) -> Result<impl Reply, Rejection> {
     match upsert_sp_metadata(&idp_id, &sp_id, store, body).await {

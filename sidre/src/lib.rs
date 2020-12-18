@@ -6,8 +6,6 @@ mod login;
 mod service_provider;
 mod store;
 
-use std::sync::Arc;
-
 use crate::{
     config::{idp_config_handler, idp_sp_config_handler, IdentityProviderConfig},
     identity_provider::get_idp_metadata_handler,
@@ -26,9 +24,11 @@ use warp::{Filter, Rejection, Reply};
 ///     - Store injection
 ///     - Routing
 #[tracing::instrument(level = "info", skip(store))]
-pub async fn app<S: Store + Send + Sync>(store: Arc<S>) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+pub async fn app<S: Store + Send + Sync>(
+    store: S,
+) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     let filter =
-        std::env::var("RUST_LOG").unwrap_or_else(|_| "tracing=info,sider=debug".to_owned());
+        std::env::var("RUST_LOG").unwrap_or_else(|_| "tracing=info,sidre=debug".to_owned());
 
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)

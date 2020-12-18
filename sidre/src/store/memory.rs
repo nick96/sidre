@@ -39,6 +39,20 @@ impl crate::store::Store for Store {
     ) -> super::Result<crate::identity_provider::IdP> {
         todo!()
     }
+
+    async fn create_service_provider(
+        &mut self,
+        service_provider: crate::service_provider::ServiceProvider,
+    ) -> super::Result<crate::service_provider::ServiceProvider> {
+        todo!()
+    }
+
+    async fn create_identity_provider(
+        &mut self,
+        identity_provider: crate::identity_provider::IdP,
+    ) -> super::Result<crate::identity_provider::IdP> {
+        todo!()
+    }
 }
 
 impl Store {

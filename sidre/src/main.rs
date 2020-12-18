@@ -18,7 +18,7 @@ async fn main() {
     let store = if should_use_persistent_store() {
         unimplemented!()
     } else {
-        Arc::new(store::MemoryStore::new())
+        store::MemoryStore::new()
     };
 
     // Run the app on 0.0.0.0 so that it works in a container.
