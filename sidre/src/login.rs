@@ -1,5 +1,8 @@
 use crate::{
-    error::Error, identity_provider::IdP, service_provider::ServiceProvider, store::Store,
+    error::Error,
+    identity_provider::IdP,
+    service_provider::ServiceProvider,
+    store::{self, Store},
 };
 use askama::Template;
 use flate2::read::DeflateDecoder;
@@ -93,7 +96,7 @@ async fn run_login<S: Store>(
             .get_identity_provider(id)
             .await
             .map_err(move |e: crate::store::Error| match e {
-                sqlx::Error::RowNotFound => {
+                crate::store::Error::NotFound(_) => {
                     tracing::info!("No identity provider with ID {}", id);
                     Error::IdentityProviderNotFound(id)
                 }
@@ -103,31 +106,31 @@ async fn run_login<S: Store>(
                 }
             })?;
 
-    let sp: ServiceProvider = sqlx::query_as("SELECT * FROM sps WHERE entity_id = $1")
-        .bind(issuer.clone())
-        .fetch_one(store)
-        .await
-        .map_err(|e: sqlx::Error| match e {
-            // We want to differentiate between no SP with the given ID not existing and other errors. Because not existing is a 404
-            // but other errors are 5xx.
-            sqlx::Error::RowNotFound => {
-                tracing::info!(
-                    "No service provider with entity ID {} for IdP {} found",
-                    issuer,
-                    idp_id
-                );
-                Error::ServiceProviderNotFound(idp_id, issuer.to_string())
-            }
-            e => {
-                tracing::error!(
-                    "Failed to get service provider {} for IdP {} from the database: {}",
-                    issuer,
-                    idp_id,
-                    e
-                );
-                e.into()
-            }
-        })?;
+    let sp: ServiceProvider =
+        store
+            .get_service_provider(&id)
+            .await
+            .map_err(|e: store::Error| match e {
+                // We want to differentiate between no SP with the given ID not existing and other errors. Because not existing is a 404
+                // but other errors are 5xx.
+                store::Error::NotFound(_) => {
+                    tracing::info!(
+                        "No service provider with entity ID {} for IdP {} found",
+                        issuer,
+                        idp_id
+                    );
+                    Error::ServiceProviderNotFound(idp_id, issuer.to_string())
+                }
+                e => {
+                    tracing::error!(
+                        "Failed to get service provider {} for IdP {} from the database: {}",
+                        issuer,
+                        idp_id,
+                        e
+                    );
+                    e.into()
+                }
+            })?;
     // TODO-correctness: Get all the keys associated with the SP and try them all.
     // let sp_key = sqlx::query!("SELECT * FROM sp_keys WHERE sp_id = $1", sp.id)
     //     .fetch_one(db)

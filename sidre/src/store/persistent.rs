@@ -5,6 +5,9 @@ impl crate::store::Store for Store {
         &mut self,
         entity_id: &str,
     ) -> super::Result<crate::service_provider::ServiceProvider> {
+        // sqlx::query_as("SELECT * FROM sps WHERE entity_id = $1")
+        // .bind(issuer.clone())
+        // .fetch_one(store)
         todo!()
     }
 
