@@ -88,18 +88,20 @@ async fn run_login<S: Store>(
     let issuer = dig_issuer(&unverified_request)?;
     // Clone the ID here so we can use it when getting the SP as well.
     let idp_id = id.clone();
-    let idp: IdP = store.get_identity_provider(id)
-    .await
-    .map_err(move |e: crate::store::Error| match e {
-        sqlx::Error::RowNotFound => {
-            tracing::info!("No identity provider with ID {}", id);
-            Error::IdentityProviderNotFound(id)
-        }
-        e => {
-            tracing::error!("Failed to get IdP {} from the database: {}", id, e);
-            e.into()
-        }
-    })?;
+    let idp: IdP =
+        store
+            .get_identity_provider(id)
+            .await
+            .map_err(move |e: crate::store::Error| match e {
+                sqlx::Error::RowNotFound => {
+                    tracing::info!("No identity provider with ID {}", id);
+                    Error::IdentityProviderNotFound(id)
+                }
+                e => {
+                    tracing::error!("Failed to get IdP {} from the database: {}", id, e);
+                    e.into()
+                }
+            })?;
 
     let sp: ServiceProvider = sqlx::query_as("SELECT * FROM sps WHERE entity_id = $1")
         .bind(issuer.clone())
