@@ -1,4 +1,4 @@
-use sidre::app;
+use sidre::{app, store};
 
 // Determine whether or not we should use the persistent store.
 //

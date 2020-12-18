@@ -93,7 +93,7 @@ async fn run_login<S: Store>(
     let idp_id = id.clone();
     let idp: IdP =
         store
-            .get_identity_provider(id)
+            .get_identity_provider(&id)
             .await
             .map_err(move |e: crate::store::Error| match e {
                 crate::store::Error::NotFound(_) => {
@@ -108,7 +108,7 @@ async fn run_login<S: Store>(
 
     let sp: ServiceProvider =
         store
-            .get_service_provider(&id)
+            .get_service_provider(&idp_id)
             .await
             .map_err(|e: store::Error| match e {
                 // We want to differentiate between no SP with the given ID not existing and other errors. Because not existing is a 404

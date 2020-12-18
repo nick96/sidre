@@ -23,7 +23,7 @@ pub struct ServiceProvider {
 /// the identity provider identified by `idp_id`.
 #[allow(clippy::unit_arg)] // TODO: Figure out what's causing this lint error.
 #[tracing::instrument(level = "info", skip(store, certificates), err)]
-async fn create_service_provider<S: Store>(
+async fn create_service_provider<S: Store + Clone>(
     store: S,
     idp_id: &str,
     sp_id: &str,
@@ -32,43 +32,24 @@ async fn create_service_provider<S: Store>(
     consume_endpoint: &str,
     certificates: Vec<&str>,
 ) -> Result<(), Error> {
-    let mut tx = store.begin().await?;
     ensure_idp(
-        store,
+        store.clone(),
         idp_id,
         &std::env::var("HOST").unwrap_or_else(|_| "localhost:8080".into()),
     )
     .await?;
-    sqlx::query!(
-        r#"INSERT INTO sps VALUES ($1, $2, $3, $4)"#,
-        sp_id,
-        entity_id,
-        name_id_format,
-        consume_endpoint
-    )
-    .execute(&mut tx)
-    .await?;
-
-    for key in certificates {
-        let der_key = base64::decode(key)?;
-        sqlx::query!(
-            r#"INSERT INTO sp_keys(sp_id, key) VALUES ($1, $2)"#,
-            sp_id,
-            der_key
-        )
-        .execute(&mut tx)
+    store
+        .upsert_service_provider(ServiceProvider {
+            id: sp_id.into(),
+            entity_id: entity_id.into(),
+            name_id_format: name_id_format.into(),
+            consume_endpoint: consume_endpoint.into(),
+            keys: certificates
+                .iter()
+                .map(|cert| cert.as_bytes().to_owned())
+                .collect(),
+        })
         .await?;
-    }
-
-    sqlx::query!(
-        r#"INSERT INTO idps_x_sps(idp_id, sp_id) VALUES ($1, $2)"#,
-        idp_id,
-        sp_id
-    )
-    .execute(&mut tx)
-    .await?;
-
-    tx.commit().await?;
 
     Ok(())
 }
@@ -149,7 +130,7 @@ fn dig_entity_id(metadata: &EntityDescriptor) -> Result<String, Error> {
 /// If the SP doesn't alreay exists it is created but if it does, then it is
 /// just updated.
 #[tracing::instrument(level = "info", skip(store, body))]
-async fn upsert_sp_metadata<S: Store>(
+async fn upsert_sp_metadata<S: Store + Clone>(
     idp_id: &str,
     sp_id: &str,
     store: S,
@@ -186,7 +167,7 @@ async fn upsert_sp_metadata<S: Store>(
 /// `idp_id`. Currently the IdP must already exist but in the interest of making
 /// setup easy, it might be worth looking into ensuring the IdP exists here.
 #[tracing::instrument(level = "info", skip(store, body))]
-pub async fn upsert_sp_metadata_handler<S: Store>(
+pub async fn upsert_sp_metadata_handler<S: Store + Clone>(
     idp_id: String,
     sp_id: String,
     store: S,

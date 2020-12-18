@@ -4,7 +4,7 @@ mod generation;
 mod identity_provider;
 mod login;
 mod service_provider;
-mod store;
+pub mod store;
 
 use crate::{
     config::{idp_config_handler, idp_sp_config_handler, IdentityProviderConfig},
@@ -24,7 +24,7 @@ use warp::{Filter, Rejection, Reply};
 ///     - Store injection
 ///     - Routing
 #[tracing::instrument(level = "info", skip(store))]
-pub async fn app<S: Store + Send + Sync>(
+pub async fn app<S: Store + Send + Sync + Clone>(
     store: S,
 ) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     let filter =

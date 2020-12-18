@@ -16,7 +16,7 @@ pub enum Error {
     NotFound(String),
     /// Some other error prevented us from performing the action.
     #[error("Could not retrieve entity: {0}")]
-    Failure(#[from] Box<dyn std::error::Error>),
+    Failure(#[from] anyhow::Error),
 }
 
 /// Result of a store action.
@@ -26,7 +26,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub trait Store {
     /// Get the service provider by their `entity_id`.
     async fn get_service_provider(
-        &mut self,
+        &self,
         entity_id: &str,
     ) -> Result<service_provider::ServiceProvider>;
 
@@ -35,12 +35,12 @@ pub trait Store {
 
     /// Insert the service provider if it doesn't exist, otherwise create it.
     async fn upsert_service_provider(
-        &mut self,
+        &self,
         service_provider: service_provider::ServiceProvider,
     ) -> Result<service_provider::ServiceProvider>;
 
     async fn create_service_provider(
-        &mut self,
+        &self,
         service_provider: service_provider::ServiceProvider,
     ) -> Result<service_provider::ServiceProvider>;
 
@@ -53,12 +53,12 @@ pub trait Store {
     /// Ensure the identity provider exists. If it does, just return it, otherwise
     /// create it using the defaults and return it.
     async fn ensure_identity_provider(
-        &mut self,
+        &self,
         identity_provider: identity_provider::IdP,
     ) -> Result<identity_provider::IdP>;
 
     async fn create_identity_provider(
-        &mut self,
+        &self,
         identity_provider: identity_provider::IdP,
     ) -> Result<identity_provider::IdP>;
 }

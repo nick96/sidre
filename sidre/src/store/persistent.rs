@@ -2,7 +2,7 @@ pub struct Store {}
 
 impl crate::store::Store for Store {
     async fn get_service_provider(
-        &mut self,
+        &self,
         entity_id: &str,
     ) -> super::Result<crate::service_provider::ServiceProvider> {
         // sqlx::query_as("SELECT * FROM sps WHERE entity_id = $1")
@@ -16,7 +16,7 @@ impl crate::store::Store for Store {
     }
 
     async fn upsert_service_provider(
-        &mut self,
+        &self,
         service_provider: crate::service_provider::ServiceProvider,
     ) -> super::Result<crate::service_provider::ServiceProvider> {
         todo!()
@@ -48,21 +48,21 @@ impl crate::store::Store for Store {
     }
 
     async fn ensure_identity_provider(
-        &mut self,
+        &self,
         identity_provider: crate::identity_provider::IdP,
     ) -> super::Result<crate::identity_provider::IdP> {
         todo!()
     }
 
     async fn create_service_provider(
-        &mut self,
+        &self,
         service_provider: crate::service_provider::ServiceProvider,
     ) -> super::Result<crate::service_provider::ServiceProvider> {
         todo!()
     }
 
     async fn create_identity_provider(
-        &mut self,
+        &self,
         identity_provider: crate::identity_provider::IdP,
     ) -> super::Result<crate::identity_provider::IdP> {
         todo!()
