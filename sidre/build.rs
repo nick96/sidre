@@ -1,5 +1,5 @@
 use glob::glob;
-use prost_build::Config;
+use prost_build::compile_protos;
 
 fn main() {
     let protos: Vec<String> = glob("protos/*.proto")
@@ -14,15 +14,6 @@ fn main() {
         println!("cargo:rerun-if-changed={}", proto_file);
     }
 
-    let mut config = Config::default();
-
-    // If we're testing we want to be able to assert_* on tings and for that we
-    // need Debug.
-    if cfg!(test) {
-        config.type_attribute(".", "#[derive(Debug)]");
-    }
-
-    config
-        .compile_protos(&protos, &["protos".into()])
+    compile_protos(&protos, &["protos".into()])
         .expect("failed to build protos");
 }
