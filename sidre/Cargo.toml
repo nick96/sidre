@@ -41,7 +41,7 @@ samael = { git = "https://github.com/nick96/samael", rev = "59fe9f762d72865ea9f8
 askama = "0.10.5"
 serde_json = "1.0.59"
 bytes = "0.5.6"
-anyhow = "1.0.34"
+anyhow = "1.0.36"
 async-trait = "0.1.42"
 sled = { version = "0.34.6",  optional = true }
 prost = { version = "0.6.1", optional = true }
