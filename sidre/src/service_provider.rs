@@ -6,6 +6,7 @@ use warp::{http::Response, Rejection, Reply};
 
 use crate::{error::Error, identity_provider::ensure_idp, store::Store};
 
+#[derive(Debug, PartialEq)]
 pub struct ServiceProvider {
     /// ID uniquely identifying the servide provider. This is what is used to
     /// reference the SP in the URL.
