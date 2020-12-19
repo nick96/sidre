@@ -15,8 +15,10 @@ pub enum Error {
     #[error("Could not find entity with ID {0}")]
     NotFound(String),
     /// Some other error prevented us from performing the action.
+    #[cfg(feature = "data-in-memory")]
     #[error("Could not retrieve entity: {0}")]
-    Failure(#[from] anyhow::Error),
+    Failure(#[from] sled::Error),
+    // TODO: Failure when persistent-postgres is enabled.
 }
 
 /// Result of a store action.
@@ -95,7 +97,7 @@ pub fn get_store_for_test() -> impl Store + Clone {
     if cfg!(feature = "data-in-memory")
         && !cfg!(feature = "postgres-persistent")
     {
-        MemoryStore::new()
+        MemoryStore::new().expect("failed to construct in-memory store")
     } else if cfg!(feature = "postgres-persistent")
         && !cfg!(feature = "data-in-memory")
     {

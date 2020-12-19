@@ -1,0 +1,13 @@
+syntax = "proto3";
+package sidre;
+
+enum NameIdFormat {
+  EmailAddress = 0;
+}
+
+message ServiceProvider {
+  string entity_id = 1;
+  NameIdFormat name_id_format = 2;
+  string consume_endpoint = 3;
+  repeated string base64_keys = 4;
+}
