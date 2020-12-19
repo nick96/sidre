@@ -114,7 +114,8 @@ impl crate::store::Store for Store {
 
 impl Store {
     pub fn new() -> Result<Self> {
-        let db = sled::open("")?;
+        // Open it in the tmp dir because we want this to be ephemeral.
+        let db = sled::open("/tmp/sidre-db")?;
         Ok(Self { db })
     }
 }
@@ -123,14 +124,15 @@ impl Store {
 mod test {
     use rand::Rng;
 
+    use crate::{service_provider, store::Store};
+
     use super::service_provider::{NameIdFormat, ServiceProvider};
-    use super::Store as MemoryStore;
     use super::Result;
+    use super::Store as MemoryStore;
     use prost::{
         bytes::{Buf, BytesMut},
         Message,
     };
-    use crate::store::Store;
 
     fn random_string() -> String {
         rand::thread_rng()
@@ -160,7 +162,9 @@ mod test {
             .insert(entity_id.as_bytes(), encoded_service_provider.bytes())?;
         let retrieved_service_provider =
             store.get_service_provider(entity_id).await.unwrap();
-        assert_eq!(service_provider, retrieved_service_provider);
+        let expected_service_provider: service_provider::ServiceProvider =
+            service_provider.into();
+        assert_eq!(expected_service_provider, retrieved_service_provider);
         Ok(())
     }
 

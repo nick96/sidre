@@ -1,5 +1,8 @@
+use async_trait::async_trait;
+
 pub struct Store {}
 
+#[async_trait]
 impl crate::store::Store for Store {
     async fn get_service_provider(
         &self,
