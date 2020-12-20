@@ -9,7 +9,7 @@ use warp::Filter;
 /// Possible errors returned by the store. The important thing is that we're
 /// diffentiating between not found, a client error, and other failures, a
 /// server error.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum Error {
     /// Entity was not found.
     #[error("Could not find entity with ID {0}")]

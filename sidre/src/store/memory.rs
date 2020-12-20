@@ -122,11 +122,13 @@ impl Store {
 
 #[cfg(test)]
 mod test {
+    use once_cell::sync::OnceCell;
     use rand::Rng;
 
     use crate::{service_provider, store::Store};
 
     use super::service_provider::{NameIdFormat, ServiceProvider};
+    use super::Error;
     use super::Result;
     use super::Store as MemoryStore;
     use prost::{
@@ -141,13 +143,20 @@ mod test {
             .collect()
     }
 
+    fn store_for_test() -> MemoryStore {
+        static DB: OnceCell<sled::Db> = OnceCell::new();
+        MemoryStore {
+            db: DB.get_or_init(|| sled::open("/tmp/sidre-db").unwrap()).to_owned()
+        }
+    }
+
     #[tokio::test]
     async fn get_service_provider_exists() -> Result<()> {
-        let entity_id = "";
-        let consume_endpoint = "";
+        let entity_id = random_string();
+        let consume_endpoint = random_string();
         let service_provider = ServiceProvider {
-            entity_id: entity_id.into(),
-            consume_endpoint: consume_endpoint.into(),
+            entity_id: entity_id.clone(),
+            consume_endpoint,
             name_id_format: NameIdFormat::EmailAddress as i32,
             base64_keys: vec![],
         };
@@ -156,12 +165,12 @@ mod test {
             .encode(&mut encoded_service_provider)
             .unwrap();
 
-        let store = MemoryStore::new()?;
+        let store = store_for_test();
         store
             .db
             .insert(entity_id.as_bytes(), encoded_service_provider.bytes())?;
         let retrieved_service_provider =
-            store.get_service_provider(entity_id).await.unwrap();
+            store.get_service_provider(&entity_id).await.unwrap();
         let expected_service_provider: service_provider::ServiceProvider =
             service_provider.into();
         assert_eq!(expected_service_provider, retrieved_service_provider);
@@ -169,7 +178,11 @@ mod test {
     }
 
     #[tokio::test]
-    async fn get_service_provider_not_exists() {
-        todo!()
+    async fn get_service_provider_not_exists() -> Result<()> {
+        let entity_id = random_string();
+        let store = store_for_test();
+        let error = store.get_service_provider(&entity_id).await.unwrap_err();
+        assert_eq!(error, Error::NotFound(entity_id));
+        Ok(())
     }
 }
