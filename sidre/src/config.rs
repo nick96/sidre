@@ -58,10 +58,10 @@ struct ServideProviderConfig {
     attribute_mapping: HashMap<String, String>,
 }
 
-#[tracing::instrument(level = "info", skip(config, store))]
+#[tracing::instrument(level = "info", skip(config, _store))]
 pub async fn idp_config_handler<S: Store>(
     id: String,
-    store: S,
+    _store: S,
     config: IdentityProviderConfig,
 ) -> Result<impl Reply, Rejection> {
     tracing::debug!("Received IdP config: {:?}", config.clone());

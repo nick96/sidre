@@ -6,11 +6,7 @@ use sidre::{app, store};
 // world where we may want to compile both features and chose one or the other
 // based on a command line flag or environment variable.
 fn should_use_persistent_store() -> bool {
-    if cfg!(feature = "data-in-memory") {
-        false
-    } else {
-        true
-    }
+    !cfg!(feature = "data-in-memory")
 }
 
 #[tokio::main]
