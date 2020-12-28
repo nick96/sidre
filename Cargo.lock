@@ -2109,7 +2109,7 @@ dependencies = [
  "askama",
  "async-trait",
  "base64 0.13.0",
- "bytes 0.5.6",
+ "bytes 1.0.0",
  "chrono",
  "flate2",
  "glob",
