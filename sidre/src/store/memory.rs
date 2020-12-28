@@ -1,8 +1,8 @@
-use crate::store::Result;
 use async_trait::async_trait;
 use prost::Message;
 
 use super::Error;
+use crate::store::Result;
 
 pub mod service_provider {
     use samael::metadata;
@@ -18,7 +18,7 @@ pub mod service_provider {
                     metadata::NameIdFormat::EmailAddressNameIDFormat
                         .value()
                         .to_string()
-                }
+                },
             }
         }
     }
@@ -66,7 +66,8 @@ impl crate::store::Store for Store {
         &self,
         entity_id: &str,
     ) -> super::Result<bool> {
-        todo!()
+        let exists = self.db.contains_key(&entity_id)?;
+        Ok(exists)
     }
 
     async fn upsert_service_provider(
@@ -123,18 +124,17 @@ impl Store {
 #[cfg(test)]
 mod test {
     use once_cell::sync::OnceCell;
-    use rand::Rng;
-
-    use crate::{service_provider, store::Store};
-
-    use super::service_provider::{NameIdFormat, ServiceProvider};
-    use super::Error;
-    use super::Result;
-    use super::Store as MemoryStore;
     use prost::{
         bytes::{Buf, BytesMut},
         Message,
     };
+    use rand::Rng;
+
+    use super::{
+        service_provider::{NameIdFormat, ServiceProvider},
+        Error, Result, Store as MemoryStore,
+    };
+    use crate::{service_provider, store::Store};
 
     fn random_string() -> String {
         rand::thread_rng()
@@ -146,7 +146,9 @@ mod test {
     fn store_for_test() -> MemoryStore {
         static DB: OnceCell<sled::Db> = OnceCell::new();
         MemoryStore {
-            db: DB.get_or_init(|| sled::open("/tmp/sidre-db").unwrap()).to_owned()
+            db: DB
+                .get_or_init(|| sled::open("/tmp/sidre-db").unwrap())
+                .to_owned(),
         }
     }
 

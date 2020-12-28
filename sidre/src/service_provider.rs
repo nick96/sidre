@@ -188,15 +188,15 @@ pub async fn upsert_sp_metadata_handler<S: Store + Clone>(
         Err(err @ Error::SamaelEntityDescriptorError(_)) => {
             tracing::warn!("Received invalid XML doc for SP metadata: {}", err);
             Ok(Response::builder().status(400).body(""))
-        }
+        },
         Err(err @ Error::MissingField(_)) => {
             tracing::warn!("Received SP metadata with missing field: {}", err);
             Ok(Response::builder().status(400).body(""))
-        }
+        },
         Err(e) => {
             tracing::error!("Upserting SP metadata failed: {}", e);
             Ok(Response::builder().status(500).body(""))
-        }
+        },
     }
 }
 
