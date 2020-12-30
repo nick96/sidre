@@ -118,7 +118,7 @@ pub fn get_store_for_test() -> impl Store + Clone {
         match &store_type[..] {
             "memory" => {
                 MemoryStore::new().expect("failed to construct in-memory store")
-            }
+            },
             "persistent" => unimplemented!(),
             _ => panic!(
                 "Unknown store type in SIDRE_STORE_TYPE '{}'",

@@ -33,7 +33,7 @@ pub mod service_provider {
                     metadata::NameIdFormat::EmailAddressNameIDFormat
                         .value()
                         .to_string()
-                }
+                },
             }
         }
     }
@@ -117,9 +117,10 @@ impl crate::store::Store for Store {
                 |maybe_existing| {
                     if let Some(_) = maybe_existing {
                         tracing::info!(
-                        "Service provider with entity ID {} found, updating",
-                        &proto_service_provider.entity_id
-                    );
+                            "Service provider with entity ID {} found, \
+                             updating",
+                            &proto_service_provider.entity_id
+                        );
                     } else {
                         tracing::info!(
                             "No service provider with entity ID {}, inserting",
@@ -153,7 +154,7 @@ impl crate::store::Store for Store {
                                 e
                             );
                             None
-                        }
+                        },
                     }
                 },
             )?
@@ -196,9 +197,16 @@ impl crate::store::Store for Store {
         let mut buf = bytes::BytesMut::default();
         proto_service_provider.encode(&mut buf)?;
         self.db.insert(&proto_service_provider.entity_id, &*buf)?;
-        let inserted_data = self.db
+        let inserted_data = self
+            .db
             .get(&proto_service_provider.entity_id)?
-            .ok_or_else(|| Error::GenericFailure("getting previously inserted service provider returned None".into()))?;
+            .ok_or_else(|| {
+                Error::GenericFailure(
+                    "getting previously inserted service provider returned \
+                     None"
+                        .into(),
+                )
+            })?;
         let inserted_sp =
             service_provider::ServiceProvider::decode(&*inserted_data)?;
         Ok(inserted_sp.into())
