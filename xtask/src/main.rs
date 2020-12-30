@@ -4,12 +4,12 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{anyhow, bail, ensure, Context, Error, Result};
+use anyhow::{bail, ensure, Context, Error, Result};
 use xshell::{cmd, pushd, pushenv};
 
 enum Mode {
     Overwrite,
-    Verify,
+    // Verify,
 }
 
 enum Command {
@@ -94,9 +94,9 @@ fn run_rustfmt(mode: Mode) -> Result<()> {
     // Some of the directives in rustfmt.toml are nightly only.
     let _e = pushenv("RUSTUP_TOOLCHAIN", "nightly");
     ensure_rustfmt()?;
-    let check = match mode {
+    let check: &[String] = match mode {
         Mode::Overwrite => &[][..],
-        Mode::Verify => &["--", "--check"],
+        // Mode::Verify => &["--", "--check"],
     };
     cmd!("cargo fmt {check...}").run()?;
     Ok(())
