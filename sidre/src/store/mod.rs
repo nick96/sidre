@@ -14,10 +14,20 @@ pub enum Error {
     /// Entity was not found.
     #[error("Could not find entity with ID {0}")]
     NotFound(String),
+    /// Generic failure. If this occurs you probably need to have a look at the
+    /// logs leading up to it for details on what happened.
+    #[error("Failure: {0}")]
+    GenericFailure(String),
+
     /// Some other error prevented us from performing the action.
     #[cfg(feature = "data-in-memory")]
     #[error("Could not retrieve entity: {0}")]
-    Failure(#[from] sled::Error),
+    SledError(#[from] sled::Error),
+    #[cfg(feature = "data-in-memory")]
+    #[error("Could not decode protobuf: {0}")]
+    DecodeError(#[from] prost::DecodeError),
+    #[error("Could not encode protobuf: {0}")]
+    EncodeError(#[from] prost::EncodeError),
     // TODO: Failure when persistent-postgres is enabled.
 }
 
@@ -108,7 +118,7 @@ pub fn get_store_for_test() -> impl Store + Clone {
         match &store_type[..] {
             "memory" => {
                 MemoryStore::new().expect("failed to construct in-memory store")
-            },
+            }
             "persistent" => unimplemented!(),
             _ => panic!(
                 "Unknown store type in SIDRE_STORE_TYPE '{}'",

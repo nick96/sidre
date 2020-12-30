@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use bytes::BytesMut;
 use prost::Message;
 
 use super::Error;
@@ -11,31 +12,64 @@ pub mod service_provider {
 
     include!(concat!(env!("OUT_DIR"), "/sidre.rs"));
 
-    impl Into<String> for NameIdFormat {
-        fn into(self) -> String {
-            match self {
-                NameIdFormat::EmailAddress => {
-                    metadata::NameIdFormat::EmailAddressNameIDFormat
-                        .value()
-                        .to_string()
-                },
+    impl From<String> for NameIdFormat {
+        fn from(name_id_format: String) -> Self {
+            let email_address_name_id_format =
+                metadata::NameIdFormat::EmailAddressNameIDFormat
+                    .value()
+                    .to_string();
+            if name_id_format == email_address_name_id_format {
+                NameIdFormat::EmailAddress
+            } else {
+                panic!(format!("unknown name ID format: {}", name_id_format))
             }
         }
     }
 
-    impl Into<service_provider::ServiceProvider> for ServiceProvider {
-        fn into(self) -> service_provider::ServiceProvider {
-            service_provider::ServiceProvider {
-                id: self.entity_id.clone(),
-                entity_id: self.entity_id,
-                name_id_format: NameIdFormat::from_i32(self.name_id_format)
-                    .expect("Invalid NameIdFormat")
-                    .into(),
-                consume_endpoint: self.consume_endpoint,
-                keys: self
+    impl From<NameIdFormat> for String {
+        fn from(name_id_format: NameIdFormat) -> Self {
+            match name_id_format {
+                NameIdFormat::EmailAddress => {
+                    metadata::NameIdFormat::EmailAddressNameIDFormat
+                        .value()
+                        .to_string()
+                }
+            }
+        }
+    }
+
+    impl From<service_provider::ServiceProvider> for ServiceProvider {
+        fn from(service_provider: service_provider::ServiceProvider) -> Self {
+            let name_id_format: NameIdFormat =
+                service_provider.name_id_format.into();
+            Self {
+                entity_id: service_provider.entity_id,
+                name_id_format: name_id_format as i32,
+                consume_endpoint: service_provider.consume_endpoint,
+                base64_keys: service_provider
+                    .keys
+                    .iter()
+                    .map(base64::encode)
+                    .collect(),
+            }
+        }
+    }
+
+    impl From<ServiceProvider> for service_provider::ServiceProvider {
+        fn from(service_provider: ServiceProvider) -> Self {
+            Self {
+                id: service_provider.entity_id.clone(),
+                entity_id: service_provider.entity_id,
+                name_id_format: NameIdFormat::from_i32(
+                    service_provider.name_id_format,
+                )
+                .unwrap()
+                .into(),
+                consume_endpoint: service_provider.consume_endpoint,
+                keys: service_provider
                     .base64_keys
                     .iter()
-                    .map(|k| k.as_bytes().to_owned())
+                    .filter_map(|k| base64::decode(k).ok())
                     .collect(),
             }
         }
@@ -57,8 +91,7 @@ impl crate::store::Store for Store {
             .db
             .get(&entity_id)?
             .ok_or_else(|| Error::NotFound(entity_id.to_string()))?;
-        let sp = service_provider::ServiceProvider::decode(&*data)
-            .expect("Failed to decode service provider protobuf");
+        let sp = service_provider::ServiceProvider::decode(&*data)?;
         Ok(sp.into())
     }
 
@@ -72,9 +105,65 @@ impl crate::store::Store for Store {
 
     async fn upsert_service_provider(
         &self,
-        _service_provider: crate::service_provider::ServiceProvider,
+        service_provider: crate::service_provider::ServiceProvider,
     ) -> super::Result<crate::service_provider::ServiceProvider> {
-        todo!()
+        let proto_service_provider: service_provider::ServiceProvider =
+            service_provider.into();
+
+        let data = self
+            .db
+            .update_and_fetch(
+                &proto_service_provider.entity_id,
+                |maybe_existing| {
+                    if let Some(_) = maybe_existing {
+                        tracing::info!(
+                        "Service provider with entity ID {} found, updating",
+                        &proto_service_provider.entity_id
+                    );
+                    } else {
+                        tracing::info!(
+                            "No service provider with entity ID {}, inserting",
+                            &proto_service_provider.entity_id
+                        );
+                    }
+                    let mut buf = BytesMut::default();
+                    if let Err(e) = proto_service_provider.encode(&mut buf) {
+                        tracing::error!(
+                            "failed to insert service provider into store: {}",
+                            e
+                        );
+                        return None;
+                    }
+
+                    if let Err(e) =
+                        self.db.insert(&proto_service_provider.entity_id, &*buf)
+                    {
+                        tracing::info!(
+                            "Failed to insert service provider: {}",
+                            e
+                        );
+                        return None;
+                    }
+
+                    match self.db.get(&proto_service_provider.entity_id) {
+                        Ok(val) => val,
+                        Err(e) => {
+                            tracing::info!(
+                                "Failed to get service provider: {}",
+                                e
+                            );
+                            None
+                        }
+                    }
+                },
+            )?
+            .ok_or_else(|| {
+                crate::store::Error::GenericFailure(
+                    "failed to upsert service provider".into(),
+                )
+            })?;
+        let sp = service_provider::ServiceProvider::decode(&*data)?;
+        Ok(sp.into())
     }
 
     async fn get_identity_provider(
@@ -100,9 +189,19 @@ impl crate::store::Store for Store {
 
     async fn create_service_provider(
         &self,
-        _service_provider: crate::service_provider::ServiceProvider,
+        service_provider: crate::service_provider::ServiceProvider,
     ) -> super::Result<crate::service_provider::ServiceProvider> {
-        todo!()
+        let proto_service_provider: service_provider::ServiceProvider =
+            service_provider.into();
+        let mut buf = bytes::BytesMut::default();
+        proto_service_provider.encode(&mut buf)?;
+        self.db.insert(&proto_service_provider.entity_id, &*buf)?;
+        let inserted_data = self.db
+            .get(&proto_service_provider.entity_id)?
+            .ok_or_else(|| Error::GenericFailure("getting previously inserted service provider returned None".into()))?;
+        let inserted_sp =
+            service_provider::ServiceProvider::decode(&*inserted_data)?;
+        Ok(inserted_sp.into())
     }
 
     async fn create_identity_provider(
