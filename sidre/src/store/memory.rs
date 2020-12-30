@@ -115,7 +115,7 @@ impl crate::store::Store for Store {
             .update_and_fetch(
                 &proto_service_provider.entity_id,
                 |maybe_existing| {
-                    if let Some(_) = maybe_existing {
+                    if maybe_existing.is_some() {
                         tracing::info!(
                             "Service provider with entity ID {} found, \
                              updating",
