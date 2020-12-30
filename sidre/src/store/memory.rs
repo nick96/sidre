@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use async_trait::async_trait;
 use bytes::BytesMut;
 use prost::Message;
@@ -232,6 +230,8 @@ impl Store {
 
 #[cfg(test)]
 pub fn memory_store_for_test() -> Store {
+    use std::path::PathBuf;
+
     fn random_db_path() -> PathBuf {
         let dir = std::env::temp_dir();
         dir.join(uuid::Uuid::new_v4().to_string())

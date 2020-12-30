@@ -2,8 +2,6 @@
 //!
 //! This module defines a trait for what it means to be a store. Based on the
 //! specified features a store implementing that interface is exported.
-use std::path::PathBuf;
-
 use async_trait::async_trait;
 #[cfg(test)]
 use memory::memory_store_for_test;
