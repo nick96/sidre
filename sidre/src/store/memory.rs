@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use async_trait::async_trait;
 use bytes::BytesMut;
 use prost::Message;
@@ -229,8 +231,22 @@ impl Store {
 }
 
 #[cfg(test)]
+pub fn memory_store_for_test() -> Store {
+    fn random_db_path() -> PathBuf {
+        let dir = std::env::temp_dir();
+        dir.join(uuid::Uuid::new_v4().to_string())
+    }
+
+    let db_path = random_db_path();
+    Store {
+        db: sled::open(&db_path).unwrap_or_else(|_| {
+            panic!("failed to open db at {}", db_path.display())
+        }),
+    }
+}
+
+#[cfg(test)]
 mod test {
-    use once_cell::sync::OnceCell;
     use prost::{
         bytes::{Buf, BytesMut},
         Message,
@@ -238,8 +254,9 @@ mod test {
     use rand::Rng;
 
     use super::{
+        memory_store_for_test,
         service_provider::{NameIdFormat, ServiceProvider},
-        Error, Result, Store as MemoryStore,
+        Error, Result,
     };
     use crate::{service_provider, store::Store};
 
@@ -248,15 +265,6 @@ mod test {
             .sample_iter(&rand::distributions::Alphanumeric)
             .take(5)
             .collect()
-    }
-
-    fn store_for_test() -> MemoryStore {
-        static DB: OnceCell<sled::Db> = OnceCell::new();
-        MemoryStore {
-            db: DB
-                .get_or_init(|| sled::open("/tmp/sidre-db").unwrap())
-                .to_owned(),
-        }
     }
 
     #[tokio::test]
@@ -274,7 +282,7 @@ mod test {
             .encode(&mut encoded_service_provider)
             .unwrap();
 
-        let store = store_for_test();
+        let store = memory_store_for_test();
         store
             .db
             .insert(entity_id.as_bytes(), encoded_service_provider.bytes())?;
@@ -289,7 +297,7 @@ mod test {
     #[tokio::test]
     async fn get_service_provider_not_exists() -> Result<()> {
         let entity_id = random_string();
-        let store = store_for_test();
+        let store = memory_store_for_test();
         let error = store.get_service_provider(&entity_id).await.unwrap_err();
         assert_eq!(error, Error::NotFound(entity_id));
         Ok(())

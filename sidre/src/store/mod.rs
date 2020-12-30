@@ -2,7 +2,11 @@
 //!
 //! This module defines a trait for what it means to be a store. Based on the
 //! specified features a store implementing that interface is exported.
+use std::path::PathBuf;
+
 use async_trait::async_trait;
+#[cfg(test)]
+use memory::memory_store_for_test;
 use thiserror::Error;
 use warp::Filter;
 
@@ -107,7 +111,7 @@ pub fn get_store_for_test() -> impl Store + Clone {
     if cfg!(feature = "data-in-memory")
         && !cfg!(feature = "postgres-persistent")
     {
-        MemoryStore::new().expect("failed to construct in-memory store")
+        memory_store_for_test()
     } else if cfg!(feature = "postgres-persistent")
         && !cfg!(feature = "data-in-memory")
     {
@@ -116,9 +120,7 @@ pub fn get_store_for_test() -> impl Store + Clone {
         let store_type = std::env::var("SIDRE_STORE_TYPE")
             .unwrap_or_else(|_| "store".into());
         match &store_type[..] {
-            "memory" => {
-                MemoryStore::new().expect("failed to construct in-memory store")
-            },
+            "memory" => memory_store_for_test(),
             "persistent" => unimplemented!(),
             _ => panic!(
                 "Unknown store type in SIDRE_STORE_TYPE '{}'",
