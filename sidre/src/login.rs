@@ -250,7 +250,10 @@ mod test {
 
     use super::run_login;
     use crate::{
-        app, identity_provider::ensure_idp, store::get_store_for_test,
+        app,
+        identity_provider::ensure_idp,
+        store::{get_store_for_test, Store},
+        try_init_tracing,
     };
 
     fn random_string() -> String {
@@ -270,7 +273,8 @@ mod test {
         base64::encode(deflated_request)
     }
 
-    async fn run_login_with_test_data(
+    async fn run_login_with_test_data<S: Store>(
+        store: S,
         idp_id: &str,
         relay_state: Option<String>,
     ) -> String {
@@ -280,7 +284,6 @@ mod test {
                 .expect("Failed to convert saml_request.xml contents to UTF-8")
                 .to_string(),
         );
-        let store = get_store_for_test();
         run_login(idp_id.to_string(), encoded_request, relay_state, store)
             .await
             .expect("Failed to run login")
@@ -289,13 +292,15 @@ mod test {
     // https://github.com/onelogin/ruby-saml/blob/24e90a3ec658d3ced0af7bfcdce1ce656830d9f6/lib/xml_security.rb#L223-L229
     #[tokio::test]
     async fn test_idp_cert_fingerprint_in_response() {
+        try_init_tracing().expect("failed to initialise tracing");
+
         let idp_id = random_string();
         let host = random_string();
 
         let store = get_store_for_test();
-        let idp = ensure_idp(store, &idp_id, &host).await.unwrap();
+        let idp = ensure_idp(store.clone(), &idp_id, &host).await.unwrap();
 
-        let raw_response = run_login_with_test_data(&idp_id, None).await;
+        let raw_response = run_login_with_test_data(store, &idp_id, None).await;
         let response = roxmltree::Document::parse(&raw_response)
             .expect("Failed to parse response");
         let saml_response = response
@@ -347,10 +352,11 @@ mod test {
         let host = random_string();
 
         let store = get_store_for_test();
-        let _ = ensure_idp(store, &idp_id, &host).await.unwrap();
+        let _ = ensure_idp(store.clone(), &idp_id, &host).await.unwrap();
         let expected_relay_state = random_string();
 
         let raw_response = run_login_with_test_data(
+            store,
             &idp_id,
             Some(expected_relay_state.clone()),
         )
@@ -380,7 +386,7 @@ mod test {
     async fn test_cert_in_metadata_same_as_cert_in_response() {
         let store = get_store_for_test();
         let idp_id = random_string();
-        let filter = app(store).await;
+        let filter = app(store.clone()).await;
         let metadata_response = warp::test::request()
             .header("Host", "http://localhost:8080")
             .path(&format!("/{}/metadata", idp_id))
@@ -408,7 +414,7 @@ mod test {
         let metadata_cert = base64::decode(metadata_cert_base64)
             .expect("failed to decode base64 encoded cert in metadata");
 
-        let raw_response = run_login_with_test_data(&idp_id, None).await;
+        let raw_response = run_login_with_test_data(store, &idp_id, None).await;
         let response = roxmltree::Document::parse(&raw_response)
             .expect("Failed to parse response");
         let saml_response = response

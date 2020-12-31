@@ -1,14 +1,16 @@
 use async_trait::async_trait;
+use base64::encode;
 use bytes::BytesMut;
 use prost::Message;
 
 use super::Error;
-use crate::store::Result;
+use crate::{identity_provider, store::Result};
 
-pub mod service_provider {
+pub mod encoding {
+    use chrono::TimeZone;
     use samael::metadata;
 
-    use crate::service_provider;
+    use crate::{identity_provider, service_provider};
 
     include!(concat!(env!("OUT_DIR"), "/sidre.rs"));
 
@@ -74,6 +76,57 @@ pub mod service_provider {
             }
         }
     }
+
+    impl From<identity_provider::IdP> for IdentityProvider {
+        fn from(identity_provider: identity_provider::IdP) -> Self {
+            let name_id_format: NameIdFormat =
+                identity_provider.name_id_format.into();
+            Self {
+                entity_id: identity_provider.entity_id,
+                name_id_format: name_id_format as i32,
+                redirect_url: identity_provider.redirect_url,
+                base64_certificate: base64::encode(
+                    identity_provider.certificate,
+                ),
+                base64_private_key: base64::encode(
+                    identity_provider.private_key,
+                ),
+                metadata_valid_until: identity_provider
+                    .metadata_valid_until
+                    .timestamp(),
+            }
+        }
+    }
+
+    impl From<IdentityProvider> for identity_provider::IdP {
+        fn from(identity_provider: IdentityProvider) -> Self {
+            let naive_metdata_valid_until =
+                chrono::NaiveDateTime::from_timestamp(
+                    identity_provider.metadata_valid_until,
+                    0,
+                );
+            Self {
+                id: identity_provider.entity_id.clone(),
+                entity_id: identity_provider.entity_id,
+                name_id_format: NameIdFormat::from_i32(
+                    identity_provider.name_id_format,
+                )
+                .unwrap()
+                .into(),
+                redirect_url: identity_provider.redirect_url,
+                certificate: base64::decode(
+                    identity_provider.base64_certificate,
+                )
+                .expect("invalid base64 IdP certificate"),
+                private_key: base64::decode(
+                    identity_provider.base64_private_key,
+                )
+                .expect("invalid base64 IdP private key"),
+                metadata_valid_until: chrono::Utc
+                    .from_utc_datetime(&naive_metdata_valid_until),
+            }
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -91,7 +144,7 @@ impl crate::store::Store for Store {
             .db
             .get(&entity_id)?
             .ok_or_else(|| Error::NotFound(entity_id.to_string()))?;
-        let sp = service_provider::ServiceProvider::decode(&*data)?;
+        let sp = encoding::ServiceProvider::decode(&*data)?;
         Ok(sp.into())
     }
 
@@ -107,7 +160,7 @@ impl crate::store::Store for Store {
         &self,
         service_provider: crate::service_provider::ServiceProvider,
     ) -> super::Result<crate::service_provider::ServiceProvider> {
-        let proto_service_provider: service_provider::ServiceProvider =
+        let proto_service_provider: encoding::ServiceProvider =
             service_provider.into();
 
         let data = self
@@ -163,36 +216,100 @@ impl crate::store::Store for Store {
                     "failed to upsert service provider".into(),
                 )
             })?;
-        let sp = service_provider::ServiceProvider::decode(&*data)?;
+        let sp = encoding::ServiceProvider::decode(&*data)?;
         Ok(sp.into())
     }
 
     async fn get_identity_provider(
         &self,
-        _entity_id: &str,
+        entity_id: &str,
     ) -> super::Result<crate::identity_provider::IdP> {
-        todo!()
+        let encoded_idp = self
+            .db
+            .get(entity_id)?
+            .ok_or_else(|| Error::NotFound(entity_id.into()))?;
+        let idp = encoding::IdentityProvider::decode(&*encoded_idp)?;
+        Ok(idp.into())
     }
 
     async fn identity_provider_exists(
         &self,
-        _entity_id: &str,
+        entity_id: &str,
     ) -> super::Result<bool> {
-        todo!()
+        let exists = self.db.contains_key(entity_id)?;
+        Ok(exists)
     }
 
     async fn ensure_identity_provider(
         &self,
-        _identity_provider: crate::identity_provider::IdP,
+        identity_provider: crate::identity_provider::IdP,
     ) -> super::Result<crate::identity_provider::IdP> {
-        todo!()
+        let proto_identity_provider: encoding::IdentityProvider =
+            identity_provider.into();
+
+        let data = self
+            .db
+            .update_and_fetch(
+                &proto_identity_provider.entity_id,
+                |maybe_existing| {
+                    if maybe_existing.is_some() {
+                        tracing::info!(
+                            "Identity provider with entity ID {} found, \
+                             updating",
+                            &proto_identity_provider.entity_id
+                        );
+                    } else {
+                        tracing::info!(
+                            "No identity provider with entity ID {}, inserting",
+                            &proto_identity_provider.entity_id
+                        );
+                    }
+                    let mut buf = BytesMut::default();
+                    if let Err(e) = proto_identity_provider.encode(&mut buf) {
+                        tracing::error!(
+                            "failed to insert identity provider into store: {}",
+                            e
+                        );
+                        return None;
+                    }
+
+                    if let Err(e) = self
+                        .db
+                        .insert(&proto_identity_provider.entity_id, &*buf)
+                    {
+                        tracing::info!(
+                            "Failed to insert identity provider: {}",
+                            e
+                        );
+                        return None;
+                    }
+
+                    match self.db.get(&proto_identity_provider.entity_id) {
+                        Ok(val) => val,
+                        Err(e) => {
+                            tracing::info!(
+                                "Failed to get identity provider: {}",
+                                e
+                            );
+                            None
+                        },
+                    }
+                },
+            )?
+            .ok_or_else(|| {
+                crate::store::Error::GenericFailure(
+                    "failed to upsert identity provider".into(),
+                )
+            })?;
+        let idp = encoding::IdentityProvider::decode(&*data)?;
+        Ok(idp.into())
     }
 
     async fn create_service_provider(
         &self,
         service_provider: crate::service_provider::ServiceProvider,
     ) -> super::Result<crate::service_provider::ServiceProvider> {
-        let proto_service_provider: service_provider::ServiceProvider =
+        let proto_service_provider: encoding::ServiceProvider =
             service_provider.into();
         let mut buf = bytes::BytesMut::default();
         proto_service_provider.encode(&mut buf)?;
@@ -207,16 +324,31 @@ impl crate::store::Store for Store {
                         .into(),
                 )
             })?;
-        let inserted_sp =
-            service_provider::ServiceProvider::decode(&*inserted_data)?;
+        let inserted_sp = encoding::ServiceProvider::decode(&*inserted_data)?;
         Ok(inserted_sp.into())
     }
 
     async fn create_identity_provider(
         &self,
-        _identity_provider: crate::identity_provider::IdP,
+        identity_provider: crate::identity_provider::IdP,
     ) -> super::Result<crate::identity_provider::IdP> {
-        todo!()
+        let proto_identity_provider: encoding::IdentityProvider =
+            identity_provider.into();
+        let mut buf = bytes::BytesMut::default();
+        proto_identity_provider.encode(&mut buf)?;
+        self.db.insert(&proto_identity_provider.entity_id, &*buf)?;
+        let inserted_data = self
+            .db
+            .get(&proto_identity_provider.entity_id)?
+            .ok_or_else(|| {
+                Error::GenericFailure(
+                    "getting previously inserted identity provider returned \
+                     None"
+                        .into(),
+                )
+            })?;
+        let inserted_idp = encoding::IdentityProvider::decode(&*inserted_data)?;
+        Ok(inserted_idp.into())
     }
 }
 
@@ -254,9 +386,8 @@ mod test {
     use rand::Rng;
 
     use super::{
-        memory_store_for_test,
-        service_provider::{NameIdFormat, ServiceProvider},
-        Error, Result,
+        encoding::{NameIdFormat, ServiceProvider},
+        memory_store_for_test, Error, Result,
     };
     use crate::{service_provider, store::Store};
 

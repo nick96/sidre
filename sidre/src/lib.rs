@@ -6,6 +6,7 @@ mod login;
 mod service_provider;
 pub mod store;
 
+use anyhow::anyhow;
 use store::Store;
 use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{Filter, Rejection, Reply};
@@ -20,6 +21,17 @@ use crate::{
     store::with_store,
 };
 
+pub fn try_init_tracing() -> anyhow::Result<()> {
+    let filter = std::env::var("RUST_LOG")
+        .unwrap_or_else(|_| "tracing=info,sidre=debug".to_owned());
+
+    Ok(tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_span_events(FmtSpan::CLOSE)
+        .try_init()
+        .map_err(|e| anyhow!("tracing initialisation failed: {}", e))?)
+}
+
 /// Return a warp app with everything wired up.
 ///
 /// This will setup:
@@ -30,14 +42,7 @@ use crate::{
 pub async fn app<S: Store + Send + Sync + Clone>(
     store: S,
 ) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
-    let filter = std::env::var("RUST_LOG")
-        .unwrap_or_else(|_| "tracing=info,sidre=debug".to_owned());
-
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_span_events(FmtSpan::CLOSE)
-        .try_init();
-
+    let _ = try_init_tracing().expect("failed to initialise tracing");
     let idp_metadata = warp::get().and(
         warp::path!(String / "metadata")
             .and(warp::header("Host"))
@@ -86,6 +91,7 @@ pub async fn app<S: Store + Send + Sync + Clone>(
 // unit tests.
 #[cfg(test)]
 mod test {
+    use pretty_assertions::assert_eq;
     use rand::Rng;
     use store::get_store_for_test;
 

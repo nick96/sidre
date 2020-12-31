@@ -178,12 +178,12 @@ async fn upsert_sp_metadata<S: Store + Clone>(
 /// setup easy, it might be worth looking into ensuring the IdP exists here.
 #[tracing::instrument(level = "info", skip(store, body))]
 pub async fn upsert_sp_metadata_handler<S: Store + Clone>(
-    idp_id: String,
-    sp_id: String,
+    idp_entity_id: String,
+    sp_entity_id: String,
     store: S,
     body: Bytes,
 ) -> Result<impl Reply, Rejection> {
-    match upsert_sp_metadata(&idp_id, &sp_id, store, body).await {
+    match upsert_sp_metadata(&idp_entity_id, &sp_entity_id, store, body).await {
         Ok(()) => Ok(Response::builder().status(201).body("")),
         Err(err @ Error::SamaelEntityDescriptorError(_)) => {
             tracing::warn!("Received invalid XML doc for SP metadata: {}", err);

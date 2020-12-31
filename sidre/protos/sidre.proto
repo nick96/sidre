@@ -11,3 +11,12 @@ message ServiceProvider {
   string consume_endpoint = 3;
   repeated string base64_keys = 4;
 }
+
+message IdentityProvider {
+  string entity_id = 1;
+  string base64_private_key = 2;
+  int64 metadata_valid_until = 3;
+  string base64_certificate = 4;
+  NameIdFormat name_id_format = 5;
+  string redirect_url = 6;
+}
