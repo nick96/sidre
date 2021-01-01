@@ -2,6 +2,8 @@
 
 FROM mcr.microsoft.com/vscode/devcontainers/rust:0-1
 
+RUN rustup install stable nightly
+
 RUN curl -L https://github.com/rust-analyzer/rust-analyzer/releases/latest/download/rust-analyzer-linux -o /usr/bin/rust-analyzer \
     && chmod +x /usr/bin/rust-analyzer
 
