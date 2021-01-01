@@ -18,9 +18,8 @@ use crate::{
 const CERT_EXPIRY_IN_DAYS: u32 = 1000;
 
 /// Representation of a row in the `idps` table in the database.
+#[derive(Debug)]
 pub struct IdP {
-    /// Unique ID for the IdP. This is what is used to reference it in the URL.
-    pub id: String,
     /// Private key used to sign the assertion. In DER format.
     pub private_key: Vec<u8>,
     /// Entity ID for the IdP.
@@ -93,23 +92,22 @@ impl IdP {
 #[tracing::instrument(level = "info", skip(store))]
 pub(crate) async fn ensure_idp<S: Store>(
     store: S,
-    id: &str,
+    entity_id: &str,
     host: &str,
 ) -> Result<IdP, Error> {
-    match store.get_identity_provider(id).await {
+    match store.get_identity_provider(entity_id).await {
         Ok(idp) => {
-            tracing::info!("IdP {} already exists, just returning", id);
+            tracing::info!("IdP {} already exists, just returning", entity_id);
             Ok(idp)
         },
         Err(store::Error::NotFound(_)) => {
             // TODO-config: Allow specifying the key type. Currently Samael only
             // allows RSA keys. Does it make sense to allow Ed25519 as well?
             let idp = IdentityProvider::generate_new(KeyType::Rsa4096)?;
-            let entity_id = format!("http://{}/{}", host, id);
 
             let certificate_der =
                 idp.create_certificate(&CertificateParams {
-                    common_name: &format!("{} (sidre)", id),
+                    common_name: &format!("{} (sidre)", &entity_id),
                     issuer_name: &entity_id,
                     days_until_expiration: CERT_EXPIRY_IN_DAYS,
                 })?;
@@ -117,23 +115,22 @@ pub(crate) async fn ensure_idp<S: Store>(
             // TODO-config: Add a knob for the name ID format (email address and
             // persistent ID are probably the most important).
             let name_id_format = NameIdFormat::EmailAddressNameIDFormat.value();
-            let redirect_url = format!("http://{}/{}/sso", host, id);
+            let redirect_url = format!("http://{}/{}/sso", host, &entity_id);
             let metadata_valid_until =
                 Utc::now() + Duration::days(CERT_EXPIRY_IN_DAYS as i64);
 
             let identity_provider = store
                 .create_identity_provider(IdP {
-                    id: id.into(),
                     private_key,
                     certificate: certificate_der,
-                    entity_id,
+                    entity_id: entity_id.into(),
                     metadata_valid_until,
                     name_id_format: name_id_format.to_string(),
                     redirect_url,
                 })
                 .await?;
 
-            tracing::info!("Created IDP {}", id);
+            tracing::info!("Created IDP {}", entity_id);
 
             Ok(identity_provider)
         },
@@ -149,11 +146,11 @@ pub(crate) async fn ensure_idp<S: Store>(
 /// will return the same metadata.
 #[tracing::instrument(level = "info", skip(store))]
 pub async fn get_idp_metadata_handler<S: Store>(
-    id: String,
+    entity_id: String,
     host: String,
     store: S,
 ) -> Result<impl Reply, Rejection> {
-    match ensure_idp(store, &id, &host).await {
+    match ensure_idp(store, &entity_id, &host).await {
         Ok(idp) => match idp.metadata().to_xml() {
             Ok(metadata) => Ok(Response::builder()
                 .header(warp::http::header::CONTENT_TYPE, "application/xml")
@@ -193,12 +190,17 @@ mod test {
 
     #[tokio::test]
     async fn test_ensure_idp_creates_one_if_it_is_missing() {
-        let idp_id = random_string();
+        let idp_entity_id = random_string();
         let host = random_string();
 
         let store = get_store_for_test();
-        let _ = ensure_idp(store.clone(), &idp_id, &host).await.unwrap();
-        let exists = store.identity_provider_exists(&idp_id).await.unwrap();
+        let _ = ensure_idp(store.clone(), &idp_entity_id, &host)
+            .await
+            .unwrap();
+        let exists = store
+            .identity_provider_exists(&idp_entity_id)
+            .await
+            .unwrap();
         assert!(exists);
     }
 

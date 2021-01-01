@@ -78,15 +78,15 @@ fn dig_issuer(request: &UnverifiedAuthnRequest) -> Result<String, Error> {
 
 #[tracing::instrument(
     level = "info",
-    skip(store, saml_request, relay_state, id)
+    skip(store, saml_request, relay_state, entity_id)
 )]
 async fn run_login<S: Store>(
-    id: String,
+    entity_id: String,
     saml_request: String,
     relay_state: Option<String>,
     store: S,
 ) -> Result<String, Error> {
-    tracing::debug!("Running login for IdP {}", id);
+    tracing::debug!("Running login for IdP {}", entity_id);
     tracing::debug!("Relay state: {:?}", relay_state);
     tracing::debug!("Encoded SAML request: {}", saml_request);
 
@@ -96,26 +96,27 @@ async fn run_login<S: Store>(
     let unverified_request = UnverifiedAuthnRequest::from_xml(&buf)?;
     let issuer = dig_issuer(&unverified_request)?;
     // Clone the ID here so we can use it when getting the SP as well.
-    let idp_id = id.clone();
-    let idp: IdP = store.get_identity_provider(&id).await.map_err(
+    let idp_entity_id = entity_id.clone();
+    let idp: IdP = store.get_identity_provider(&entity_id).await.map_err(
         move |e: crate::store::Error| match e {
             crate::store::Error::NotFound(_) => {
-                tracing::info!("No identity provider with ID {}", id);
-                Error::IdentityProviderNotFound(id)
+                tracing::info!("No identity provider with ID {}", entity_id);
+                Error::IdentityProviderNotFound(entity_id)
             },
             e => {
                 tracing::error!(
                     "Failed to get IdP {} from the database: {}",
-                    id,
+                    entity_id,
                     e
                 );
                 e.into()
             },
         },
     )?;
+    tracing::debug!("Retrieved IdP by entity ID {}: {:?}", idp_entity_id, idp);
 
     let sp: ServiceProvider = store
-        .get_service_provider(&idp_id)
+        .get_service_provider(&issuer)
         .await
         .map_err(|e: store::Error| match e {
             // We want to differentiate between no SP with the given ID not
@@ -125,21 +126,25 @@ async fn run_login<S: Store>(
                 tracing::info!(
                     "No service provider with entity ID {} for IdP {} found",
                     issuer,
-                    idp_id
+                    idp_entity_id
                 );
-                Error::ServiceProviderNotFound(idp_id, issuer.to_string())
+                Error::ServiceProviderNotFound(
+                    idp_entity_id,
+                    issuer.to_string(),
+                )
             },
             e => {
                 tracing::error!(
                     "Failed to get service provider {} for IdP {} from the \
-                     database: {}",
+                     store: {}",
                     issuer,
-                    idp_id,
+                    idp_entity_id,
                     e
                 );
                 e.into()
             },
         })?;
+    tracing::debug!("Retrieved SP by entity ID {}: {:?}", issuer, sp);
     // TODO-correctness: Get all the keys associated with the SP and try them
     // all. let sp_key = sqlx::query!("SELECT * FROM sp_keys WHERE sp_id =
     // $1", sp.id)     .fetch_one(db)
@@ -211,13 +216,15 @@ async fn run_login<S: Store>(
 /// assertion consumer service (usually just a specific) endpoint of the app.
 #[tracing::instrument(level = "info", skip(store, query))]
 pub async fn login_handler<S: Store>(
-    id: String,
+    entity_id: String,
     query: LoginRequestParams,
     store: S,
 ) -> Result<impl Reply, Rejection> {
-    tracing::info!("id={}", id);
+    tracing::info!("id={}", entity_id);
     tracing::debug!("Query params: {:?}", query);
-    match run_login(id, query.saml_request, query.relay_state, store).await {
+    match run_login(entity_id, query.saml_request, query.relay_state, store)
+        .await
+    {
         Ok(form) => Ok(http::Response::builder()
             .status(200)
             .header(warp::http::header::CONTENT_TYPE, "text/html")
@@ -244,7 +251,8 @@ mod test {
     use flate2::{write::DeflateEncoder, Compression};
     use rand::Rng;
     use samael::{
-        metadata::EntityDescriptor, service_provider::ServiceProvider,
+        metadata::{EntityDescriptor, NameIdFormat},
+        service_provider::ServiceProvider,
     };
     use sha2::Digest;
 
@@ -252,6 +260,7 @@ mod test {
     use crate::{
         app,
         identity_provider::ensure_idp,
+        service_provider::create_service_provider,
         store::{get_store_for_test, Store},
         try_init_tracing,
     };
@@ -275,7 +284,7 @@ mod test {
 
     async fn run_login_with_test_data<S: Store>(
         store: S,
-        idp_id: &str,
+        idp_entity_id: &str,
         relay_state: Option<String>,
     ) -> String {
         let request_xml = include_bytes!("../test-data/saml_request.xml");
@@ -284,9 +293,14 @@ mod test {
                 .expect("Failed to convert saml_request.xml contents to UTF-8")
                 .to_string(),
         );
-        run_login(idp_id.to_string(), encoded_request, relay_state, store)
-            .await
-            .expect("Failed to run login")
+        run_login(
+            idp_entity_id.to_string(),
+            encoded_request,
+            relay_state,
+            store,
+        )
+        .await
+        .expect("Failed to run login")
     }
 
     // https://github.com/onelogin/ruby-saml/blob/24e90a3ec658d3ced0af7bfcdce1ce656830d9f6/lib/xml_security.rb#L223-L229
@@ -294,13 +308,30 @@ mod test {
     async fn test_idp_cert_fingerprint_in_response() {
         try_init_tracing().expect("failed to initialise tracing");
 
-        let idp_id = random_string();
+        let idp_entity_id = random_string();
+        let sp_entity_id = "http://sp.example.com/demo1/metadata.php";
         let host = random_string();
+        let consume_endpoint = random_string();
+        let certificates = vec![];
 
         let store = get_store_for_test();
-        let idp = ensure_idp(store.clone(), &idp_id, &host).await.unwrap();
+        let idp = ensure_idp(store.clone(), &idp_entity_id, &host)
+            .await
+            .unwrap();
 
-        let raw_response = run_login_with_test_data(store, &idp_id, None).await;
+        create_service_provider(
+            store.clone(),
+            &idp_entity_id,
+            sp_entity_id,
+            NameIdFormat::EmailAddressNameIDFormat.value(),
+            &consume_endpoint,
+            certificates,
+        )
+        .await
+        .unwrap();
+
+        let raw_response =
+            run_login_with_test_data(store, &idp_entity_id, None).await;
         let response = roxmltree::Document::parse(&raw_response)
             .expect("Failed to parse response");
         let saml_response = response
@@ -308,6 +339,8 @@ mod test {
             .find_map(|elem| {
                 if elem.has_tag_name("input") {
                     let attrs = elem.attributes();
+                    let names: Vec<&str> =
+                        attrs.iter().map(|a| a.name()).collect();
                     if let Some(attr) =
                         attrs.iter().find(|attr| attr.name() == "SAMLResponse")
                     {
@@ -316,7 +349,13 @@ mod test {
                 }
                 None
             })
-            .expect("Failed to find SAMLResponse attribute on input element");
+            .unwrap_or_else(|| {
+                panic!(
+                    "Failed to find SAMLResponse attribute on input element \
+                     of {}",
+                    raw_response
+                )
+            });
         let service_provider = ServiceProvider::default();
         let assertion = service_provider
             .parse_response(
@@ -348,16 +387,18 @@ mod test {
 
     #[tokio::test]
     async fn test_returns_relay_state() {
-        let idp_id = random_string();
+        let idp_entity_id = random_string();
         let host = random_string();
 
         let store = get_store_for_test();
-        let _ = ensure_idp(store.clone(), &idp_id, &host).await.unwrap();
+        let _ = ensure_idp(store.clone(), &idp_entity_id, &host)
+            .await
+            .unwrap();
         let expected_relay_state = random_string();
 
         let raw_response = run_login_with_test_data(
             store,
-            &idp_id,
+            &idp_entity_id,
             Some(expected_relay_state.clone()),
         )
         .await;
@@ -385,11 +426,11 @@ mod test {
     #[tokio::test]
     async fn test_cert_in_metadata_same_as_cert_in_response() {
         let store = get_store_for_test();
-        let idp_id = random_string();
+        let idp_entity_id = random_string();
         let filter = app(store.clone()).await;
         let metadata_response = warp::test::request()
             .header("Host", "http://localhost:8080")
-            .path(&format!("/{}/metadata", idp_id))
+            .path(&format!("/{}/metadata", idp_entity_id))
             .reply(&filter)
             .await;
         assert_eq!(metadata_response.status(), 200);
@@ -414,7 +455,8 @@ mod test {
         let metadata_cert = base64::decode(metadata_cert_base64)
             .expect("failed to decode base64 encoded cert in metadata");
 
-        let raw_response = run_login_with_test_data(store, &idp_id, None).await;
+        let raw_response =
+            run_login_with_test_data(store, &idp_entity_id, None).await;
         let response = roxmltree::Document::parse(&raw_response)
             .expect("Failed to parse response");
         let saml_response = response

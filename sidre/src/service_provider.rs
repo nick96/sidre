@@ -8,9 +8,6 @@ use crate::{error::Error, identity_provider::ensure_idp, store::Store};
 
 #[derive(Debug, PartialEq)]
 pub struct ServiceProvider {
-    /// ID uniquely identifying the servide provider. This is what is used to
-    /// reference the SP in the URL.
-    pub id: String,
     /// Entity ID used in the metadata.
     pub entity_id: String,
     /// Name ID format the service provider expects.
@@ -26,25 +23,23 @@ pub struct ServiceProvider {
 /// the identity provider identified by `idp_id`.
 #[allow(clippy::unit_arg)] // TODO: Figure out what's causing this lint error.
 #[tracing::instrument(level = "info", skip(store, certificates), err)]
-async fn create_service_provider<S: Store + Clone>(
+pub async fn create_service_provider<S: Store + Clone>(
     store: S,
-    idp_id: &str,
-    sp_id: &str,
-    entity_id: &str,
+    idp_entity_id: &str,
+    sp_entity_id: &str,
     name_id_format: &str,
     consume_endpoint: &str,
     certificates: Vec<&str>,
-) -> Result<(), Error> {
+) -> Result<ServiceProvider, Error> {
     ensure_idp(
         store.clone(),
-        idp_id,
+        idp_entity_id,
         &std::env::var("HOST").unwrap_or_else(|_| "localhost:8080".into()),
     )
     .await?;
-    store
+    let sp = store
         .upsert_service_provider(ServiceProvider {
-            id: sp_id.into(),
-            entity_id: entity_id.into(),
+            entity_id: sp_entity_id.into(),
             name_id_format: name_id_format.into(),
             consume_endpoint: consume_endpoint.into(),
             keys: certificates
@@ -53,8 +48,7 @@ async fn create_service_provider<S: Store + Clone>(
                 .collect(),
         })
         .await?;
-
-    Ok(())
+    Ok(sp)
 }
 
 fn dig_name_id_format(metadata: &EntityDescriptor) -> Result<String, Error> {
@@ -136,15 +130,16 @@ fn dig_entity_id(metadata: &EntityDescriptor) -> Result<String, Error> {
 /// If the SP doesn't alreay exists it is created but if it does, then it is
 /// just updated.
 #[tracing::instrument(level = "info", skip(store, body))]
-async fn upsert_sp_metadata<S: Store + Clone>(
-    idp_id: &str,
-    sp_id: &str,
+pub async fn upsert_sp_metadata<S: Store + Clone>(
+    idp_entity_id: &str,
+    sp_entity_id: &str,
     store: S,
     body: Bytes,
-) -> Result<(), Error> {
+) -> Result<ServiceProvider, Error> {
     let metadata =
         EntityDescriptor::from_str(std::str::from_utf8(body.bytes())?)?;
     let entity_id = dig_entity_id(&metadata)?;
+    assert_eq!(idp_entity_id, entity_id);
     // TODO-correctness: Store all the different name ID formats for the
     // different descriptors.
     let name_id_format = dig_name_id_format(&metadata)?;
@@ -156,18 +151,16 @@ async fn upsert_sp_metadata<S: Store + Clone>(
     let b64_sp_cert = dig_certificate(&metadata)?;
 
     // TODO-correctness: Actually upsert SP.
-    create_service_provider(
+    let sp = create_service_provider(
         store,
-        idp_id,
-        sp_id,
-        &entity_id,
+        idp_entity_id,
+        sp_entity_id,
         &name_id_format,
         &consume_endpoint,
         vec![&b64_sp_cert],
     )
     .await?;
-
-    Ok(())
+    Ok(sp)
 }
 
 /// Handle upserting service provider metadata.
@@ -184,7 +177,7 @@ pub async fn upsert_sp_metadata_handler<S: Store + Clone>(
     body: Bytes,
 ) -> Result<impl Reply, Rejection> {
     match upsert_sp_metadata(&idp_entity_id, &sp_entity_id, store, body).await {
-        Ok(()) => Ok(Response::builder().status(201).body("")),
+        Ok(_) => Ok(Response::builder().status(201).body("")),
         Err(err @ Error::SamaelEntityDescriptorError(_)) => {
             tracing::warn!("Received invalid XML doc for SP metadata: {}", err);
             Ok(Response::builder().status(400).body(""))
@@ -226,7 +219,6 @@ mod test {
         let store = get_store_for_test();
         let idp_id = random_string();
         let sp_id = random_string();
-        let entity_id = random_string();
         let name_id_format =
             samael::metadata::NameIdFormat::EmailAddressNameIDFormat
                 .value()
@@ -238,7 +230,6 @@ mod test {
             store.clone(),
             &idp_id,
             &sp_id,
-            &entity_id,
             &name_id_format,
             &consume_endpoint,
             vec![],

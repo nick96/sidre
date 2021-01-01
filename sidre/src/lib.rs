@@ -44,6 +44,7 @@ pub async fn app<S: Store + Send + Sync + Clone>(
 ) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     let _ = try_init_tracing().expect("failed to initialise tracing");
     let idp_metadata = warp::get().and(
+        // TODO: Make IdP entity ID a get param
         warp::path!(String / "metadata")
             .and(warp::header("Host"))
             .and(with_store(store.clone()))
@@ -52,6 +53,7 @@ pub async fn app<S: Store + Send + Sync + Clone>(
     );
 
     let sp_metadata = warp::post().and(
+        // TODO: Make SP and IdP entity IDs get params
         warp::path!(String / String / "metadata")
             .and(with_store(store.clone()))
             .and(warp::body::bytes())
@@ -60,6 +62,7 @@ pub async fn app<S: Store + Send + Sync + Clone>(
     );
 
     let login = warp::get().and(
+        // TODO: Make IdP ID a get param
         warp::path!(String / "sso")
             .and(warp::query::<LoginRequestParams>())
             .and(with_store(store.clone()))
@@ -69,12 +72,14 @@ pub async fn app<S: Store + Send + Sync + Clone>(
 
     let config = warp::post()
         .and(
+            // TODO: Make IdP entity ID a get param
             warp::path!(String / "config")
                 .and(with_store(store))
                 .and(warp::body::json::<IdentityProviderConfig>())
                 .and_then(idp_config_handler::<S>)
                 .with(warp::trace::named("config-idp")),
         )
+        // TODO: Make IdP and SP entity ID a get param
         .or(warp::path!(String / String / "config")
             .and_then(idp_sp_config_handler)
             .with(warp::trace::named("config-idp-sp")));
@@ -106,16 +111,16 @@ mod test {
 
     #[tokio::test]
     async fn test_metadata_same_idp_id_same_metadata() {
-        let idp_id = random_string();
+        let idp_entity_id = random_string();
         let store = get_store_for_test();
         let filter = app(store).await;
         let first_resp = warp::test::request()
             .header("Host", "http://localhost:8080")
-            .path(&format!("/{}/metadata", idp_id))
+            .path(&format!("/{}/metadata", idp_entity_id))
             .reply(&filter)
             .await;
         let second_resp = warp::test::request()
-            .path(&format!("/{}/metadata", idp_id))
+            .path(&format!("/{}/metadata", idp_entity_id))
             .header("Host", "http://localhost:8080")
             .reply(&filter)
             .await;
@@ -127,17 +132,17 @@ mod test {
 
     #[tokio::test]
     async fn test_metadata_different_idp_different_metadata() {
-        let idp_id = random_string();
-        let idp2_id = random_string();
+        let idp_entity_id = random_string();
+        let idp2_entity_id = random_string();
         let store = get_store_for_test();
         let filter = app(store).await;
         let first_resp = warp::test::request()
-            .path(&format!("/{}/metadata", idp_id))
+            .path(&format!("/{}/metadata", idp_entity_id))
             .header("Host", "http://localhost:8080")
             .reply(&filter)
             .await;
         let second_resp = warp::test::request()
-            .path(&format!("/{}/metadata", idp2_id))
+            .path(&format!("/{}/metadata", idp2_entity_id))
             .header("Host", "http://localhost:8080")
             .reply(&filter)
             .await;

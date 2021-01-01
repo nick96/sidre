@@ -1,10 +1,9 @@
 use async_trait::async_trait;
-use base64::encode;
 use bytes::BytesMut;
 use prost::Message;
 
 use super::Error;
-use crate::{identity_provider, store::Result};
+use crate::store::Result;
 
 pub mod encoding {
     use chrono::TimeZone;
@@ -60,7 +59,6 @@ pub mod encoding {
     impl From<ServiceProvider> for service_provider::ServiceProvider {
         fn from(service_provider: ServiceProvider) -> Self {
             Self {
-                id: service_provider.entity_id.clone(),
                 entity_id: service_provider.entity_id,
                 name_id_format: NameIdFormat::from_i32(
                     service_provider.name_id_format,
@@ -106,7 +104,6 @@ pub mod encoding {
                     0,
                 );
             Self {
-                id: identity_provider.entity_id.clone(),
                 entity_id: identity_provider.entity_id,
                 name_id_format: NameIdFormat::from_i32(
                     identity_provider.name_id_format,
