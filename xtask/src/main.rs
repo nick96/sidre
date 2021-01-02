@@ -79,18 +79,15 @@ fn main() -> Result<()> {
             )?;
             match dc_cmd {
                 DockerComposeCommand::CheckFmt => xshell::cmd!(
-                    "docker-compose run --remove-orphans --rm sidre-test \
-                     cargo +nightly fmt -- --check"
+                    "docker-compose run --rm sidre-test cargo +nightly fmt -- --check"
                 )
                 .run()?,
                 DockerComposeCommand::Lint => xshell::cmd!(
-                    "docker-compose run --remove-orphans --rm sidre-test \
-                     cargo clippy -- -D warnings"
+                    "docker-compose run --rm sidre-test cargo clippy -- -D warnings"
                 )
                 .run()?,
                 DockerComposeCommand::Test => xshell::cmd!(
-                    "docker-compose run --remove-orphans --rm sidre-test \
-                     cargo test --verbose"
+                    "docker-compose run --rm sidre-test cargo test --verbose"
                 )
                 .run()?,
             }
