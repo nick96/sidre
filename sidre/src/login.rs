@@ -252,6 +252,7 @@ mod test {
     use flate2::{write::DeflateEncoder, Compression};
     use rand::Rng;
     use samael::{
+        crypto::decode_x509_cert,
         metadata::{EntityDescriptor, NameIdFormat},
         service_provider::ServiceProvider,
     };
@@ -435,6 +436,10 @@ mod test {
     async fn test_cert_in_metadata_same_as_cert_in_response() {
         let store = get_store_for_test();
         let idp_entity_id = random_string();
+        let sp_entity_id = "http://sp.example.com/demo1/metadata.php";
+        let consume_endpoint = random_string();
+        let certificates = vec![];
+
         let filter = app(store.clone()).await;
         let metadata_response = warp::test::request()
             .header("Host", "http://localhost:8080")
@@ -448,13 +453,16 @@ mod test {
             .parse()
             .expect("failed to parse metadata response into EntityDescriptor");
         let metadata_cert_base64 = metadata
-            .signature
+            .idp_sso_descriptors
             .clone()
-            .expect("signature")
-            .key_info
-            .expect("key_info")
+            .expect("idp_sso_descriptors")
             .first()
-            .expect("key_info[0]")
+            .expect("idp_sso_descriptors[0]")
+            .key_descriptors
+            .clone()
+            .first()
+            .expect("key_descriptors[0]")
+            .key_info
             .x509_data
             .clone()
             .expect("x509_data")
@@ -462,46 +470,52 @@ mod test {
             .expect("certificate");
         let metadata_cert = base64::decode(metadata_cert_base64)
             .expect("failed to decode base64 encoded cert in metadata");
+        create_service_provider(
+            store.clone(),
+            &idp_entity_id,
+            sp_entity_id,
+            NameIdFormat::EmailAddressNameIDFormat.value(),
+            &consume_endpoint,
+            certificates,
+        )
+        .await
+        .unwrap();
 
         let raw_response =
             run_login_with_test_data(store, &idp_entity_id, None).await;
         let response = roxmltree::Document::parse(&raw_response)
             .expect("Failed to parse response");
-        let saml_response = response
+        let encoded_saml_response = response
             .descendants()
             .find_map(|elem| {
-                if elem.has_tag_name("input") {
-                    let attrs = elem.attributes();
-                    if let Some(attr) =
-                        attrs.iter().find(|attr| attr.name() == "SAMLResponse")
-                    {
-                        return Some(attr.value());
-                    }
+                if elem.has_tag_name("input")
+                    && elem.attribute("name") == Some("SAMLResponse")
+                {
+                    elem.attribute("value")
+                } else {
+                    None
                 }
-                None
             })
             .expect("Failed to find SAMLResponse attribute on input element");
-        let service_provider = ServiceProvider::default();
-        let assertion = service_provider
-            .parse_response(
-                saml_response,
-                &["ONELOGIN_809707f0030a5d00620c9d9df97f627afe9dcc24"],
-            )
-            .expect("Failed to parse response");
-        let base64_cert = assertion
-            .signature
-            .expect("signature")
-            .key_info
-            .expect("key_info")
-            .first()
-            .expect("key_info[0]")
-            .x509_data
-            .clone()
-            .expect("x509_data")
-            .certificate
-            .expect("certificate");
+        let saml_response = base64::decode(encoded_saml_response)
+            .expect("failed to decode SAMLResponse");
+        let parsed_saml_response = roxmltree::Document::parse(
+            std::str::from_utf8(&saml_response)
+                .expect("SAMLResponse is invalid utf-8"),
+        )
+        .expect("failed to parse SAMLResponse");
+        let encoded_cert = parsed_saml_response
+            .descendants()
+            .find_map(|node| {
+                if node.has_tag_name("X509Certificate") {
+                    node.text()
+                } else {
+                    None
+                }
+            })
+            .expect("failed to find X509Certificate in SAML response");
         let der_cert =
-            base64::decode(base64_cert).expect("Failed to decode base64 cert");
+            decode_x509_cert(encoded_cert).expect("Failed to decode cert cert");
 
         assert_eq!(metadata_cert, der_cert);
     }
