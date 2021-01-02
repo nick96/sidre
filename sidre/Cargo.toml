@@ -32,7 +32,7 @@ chrono = "0.4.18"
 sqlx = { version = "0.4.0", features = [ "runtime-tokio-native-tls", "macros", "postgres", "uuid", "chrono", "offline" ], optional = true }
 thiserror = "1.0.23"
 base64 = "0.13.0"
-serde = "1.0.116"
+serde = "1.0.118"
 flate2 = "1.0.19"
 tracing-futures = "0.2.4"
 uuid = {version = "0.8.1", features = ["v4"]}
