@@ -388,12 +388,25 @@ mod test {
     #[tokio::test]
     async fn test_returns_relay_state() {
         let idp_entity_id = random_string();
+        let sp_entity_id = "http://sp.example.com/demo1/metadata.php";
         let host = random_string();
+        let consume_endpoint = random_string();
+        let certificates = vec![];
 
         let store = get_store_for_test();
         let _ = ensure_idp(store.clone(), &idp_entity_id, &host)
             .await
             .unwrap();
+        create_service_provider(
+            store.clone(),
+            &idp_entity_id,
+            sp_entity_id,
+            NameIdFormat::EmailAddressNameIDFormat.value(),
+            &consume_endpoint,
+            certificates,
+        )
+        .await
+        .unwrap();
         let expected_relay_state = random_string();
 
         let raw_response = run_login_with_test_data(
