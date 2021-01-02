@@ -42,7 +42,13 @@ pub fn try_init_tracing() -> anyhow::Result<()> {
 pub async fn app<S: Store + Send + Sync + Clone>(
     store: S,
 ) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
-    let _ = try_init_tracing().expect("failed to initialise tracing");
+    if let Err(e) = try_init_tracing() {
+        tracing::warn!(
+            "Failed to initialise tracing, it has probably already been \
+             initialised: {}",
+            e
+        )
+    }
     let idp_metadata = warp::get().and(
         // TODO: Make IdP entity ID a get param
         warp::path!(String / "metadata")
