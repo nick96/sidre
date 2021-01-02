@@ -254,7 +254,6 @@ mod test {
     use samael::{
         crypto::decode_x509_cert,
         metadata::{EntityDescriptor, NameIdFormat},
-        service_provider::ServiceProvider,
     };
     use sha2::Digest;
 
@@ -336,7 +335,7 @@ mod test {
             run_login_with_test_data(store, &idp_entity_id, None).await;
         let response = roxmltree::Document::parse(&raw_response)
             .expect("Failed to parse response");
-        let saml_response = response
+        let base64_saml_response = response
             .descendants()
             .find_map(|elem| {
                 if elem.has_tag_name("input")
@@ -354,27 +353,25 @@ mod test {
                     raw_response
                 )
             });
-        let service_provider = ServiceProvider::default();
-        let assertion = service_provider
-            .parse_response(
-                saml_response,
-                &["ONELOGIN_809707f0030a5d00620c9d9df97f627afe9dcc24"],
-            )
-            .expect("Failed to parse response");
-        let base64_cert = assertion
-            .signature
-            .expect("signature")
-            .key_info
-            .expect("key_info")
-            .first()
-            .expect("key_info[0]")
-            .x509_data
-            .clone()
-            .expect("x509_data")
-            .certificate
-            .expect("certificate");
+        let saml_response = base64::decode(base64_saml_response)
+            .expect("SAMLResponse is invalid base64");
+        let parsed_saml_response = roxmltree::Document::parse(
+            std::str::from_utf8(&saml_response)
+                .expect("decoded SAMLResponse is invalid utf-8"),
+        )
+        .expect("failed to parse SAMLResponse");
+        let encoded_cert = parsed_saml_response
+            .descendants()
+            .find_map(|node| {
+                if node.has_tag_name("X509Certificate") {
+                    node.text()
+                } else {
+                    None
+                }
+            })
+            .expect("failed to find X509Certificate in SAML response");
         let der_cert =
-            base64::decode(base64_cert).expect("Failed to decode base64 cert");
+            decode_x509_cert(encoded_cert).expect("Failed to decode cert cert");
         let fingerprint = sha2::Sha256::digest(&der_cert);
 
         let idp_cert = idp.certificate;
