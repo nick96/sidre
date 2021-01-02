@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{anyhow, bail, ensure, Context, Error, Result};
+use anyhow::{bail, ensure, Context, Error, Result};
 use xshell::{cmd, pushd, pushenv};
 
 enum Mode {
