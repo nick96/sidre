@@ -14,36 +14,23 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
-    - name: Start aux services
-      run: docker-compose up -d pg
-    # - name: Run migrations
-    #   run: ./scripts/migrate.sh
     - name: Run Test
-      run: docker-compose run sidre-test cargo test --verbose
-  # Make sure sqlx-data.json is up-to-date with the latest migrations. This allows
-  # us to develop without requiring postgres instance to be running.
-  # sqlx-data:
-  #   runs-on: ubuntu-20.04
-  #   steps:
-  #   - uses: actions/checkout@v2
-  #   - name: Start database
-  #     run: docker-compose up -d pg
-  #   - name: Run migrations
-  #     run: ./scripts/migrate.sh
-  #   - name: Check sqlx data
-  #     run: docker-compose run --workdir=/workspace/sidre sidre-test cargo sqlx prepare --check -- --bin sidre
+      run: cargo xtask dc test
+
   formatting:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Check formatting
-      run: docker-compose run sidre-test cargo +nightly fmt -- --check
+      run: cargo xtask dc check-fmt
+
   clippy:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Clippy
-      run: docker-compose run sidre-test cargo clippy -- -D warnings
+      run: cargo xtask dc lint
+
   release:
     runs-on: ubuntu-20.04
     steps:

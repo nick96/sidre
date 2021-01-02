@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{bail, ensure, Context, Error, Result};
+use anyhow::{anyhow, bail, ensure, Context, Error, Result};
 use xshell::{cmd, pushd, pushenv};
 
 enum Mode {
@@ -15,6 +15,7 @@ enum Mode {
 enum Command {
     PreCommit,
     InstallPreCommit,
+    DockerCompose,
 }
 
 impl FromStr for Command {
@@ -24,6 +25,27 @@ impl FromStr for Command {
         match s {
             "pre-commit" => Ok(Command::PreCommit),
             "install-pre-commit" => Ok(Command::InstallPreCommit),
+            "docker-compose" => Ok(Command::DockerCompose),
+            "dc" => Ok(Command::DockerCompose),
+            _ => bail!("Unknown subcommand: {}", s),
+        }
+    }
+}
+
+enum DockerComposeCommand {
+    CheckFmt,
+    Lint,
+    Test,
+}
+
+impl FromStr for DockerComposeCommand {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "check-fmt" => Ok(DockerComposeCommand::CheckFmt),
+            "lint" => Ok(DockerComposeCommand::Lint),
+            "test" => Ok(DockerComposeCommand::Test),
             _ => bail!("Unknown subcommand: {}", s),
         }
     }
@@ -38,8 +60,8 @@ fn main() -> Result<()> {
 
     let args_list: Vec<String> = std::env::args().into_iter().collect();
     ensure!(
-        std::env::args().len() == 2,
-        "expected 2 args, found {}: {:?}",
+        std::env::args().len() >= 2,
+        "expected at least 2 args, found {}: {:?}",
         std::env::args().len(),
         args_list,
     );
@@ -50,6 +72,29 @@ fn main() -> Result<()> {
         },
         Command::InstallPreCommit => run_install_precommit()
             .context("failed to install pre-commit hook")?,
+        Command::DockerCompose => {
+            ensure!(std::env::args().len() == 3);
+            let dc_cmd = DockerComposeCommand::from_str(
+                &std::env::args().nth(2).unwrap(),
+            )?;
+            match dc_cmd {
+                DockerComposeCommand::CheckFmt => xshell::cmd!(
+                    "docker-compose run --remove-orphans --rm sidre-test \
+                     cargo +nightly fmt -- --check"
+                )
+                .run()?,
+                DockerComposeCommand::Lint => xshell::cmd!(
+                    "docker-compose run --remove-orphans --rm sidre-test \
+                     cargo clippy -- -D warnings"
+                )
+                .run()?,
+                DockerComposeCommand::Test => xshell::cmd!(
+                    "docker-compose run --remove-orphans --rm sidre-test \
+                     cargo test --verbose"
+                )
+                .run()?,
+            }
+        },
     }
     Ok(())
 }
@@ -94,7 +139,7 @@ fn run_rustfmt(mode: Mode) -> Result<()> {
     // Some of the directives in rustfmt.toml are nightly only.
     let _e = pushenv("RUSTUP_TOOLCHAIN", "nightly");
     ensure_rustfmt()?;
-    let check: &[String] = match mode {
+    let check: &[&str] = match mode {
         Mode::Overwrite => &[][..],
         // Mode::Verify => &["--", "--check"],
     };
