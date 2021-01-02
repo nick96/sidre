@@ -15,21 +15,21 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Run Test
-      run: cargo xtask dc test
+      run: docker-compose run sidre-test cargo test --verbose
 
   formatting:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Check formatting
-      run: cargo xtask dc check-fmt
+      run: docker-compose run sidre-test cargo +nightly fmt -- --check
 
   clippy:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Clippy
-      run: cargo xtask dc lint
+      run: docker-compose run sidre-test cargo clippy -- -D warnings
 
   release:
     runs-on: ubuntu-20.04
