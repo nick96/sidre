@@ -195,12 +195,13 @@ async fn run_login<S: Store>(
     )?;
     let response_xml = response.to_xml()?;
     tracing::debug!("SAML assertion: {}", response_xml);
-    Ok(LoginForm {
+    let login_form = LoginForm {
         sp_consume_endpoint: sp.consume_endpoint,
         saml_response: base64::encode(response_xml),
         relay_state,
     }
-    .render()?)
+    .render()?;
+    Ok(login_form)
 }
 
 /// Handle login.
@@ -337,17 +338,13 @@ mod test {
         let saml_response = response
             .descendants()
             .find_map(|elem| {
-                if elem.has_tag_name("input") {
-                    let attrs = elem.attributes();
-                    let names: Vec<&str> =
-                        attrs.iter().map(|a| a.name()).collect();
-                    if let Some(attr) =
-                        attrs.iter().find(|attr| attr.name() == "SAMLResponse")
-                    {
-                        return Some(attr.value());
-                    }
+                if elem.has_tag_name("input")
+                    && elem.attribute("name") == Some("SAMLResponse")
+                {
+                    elem.attribute("value")
+                } else {
+                    None
                 }
-                None
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -421,15 +418,13 @@ mod test {
         let relay_state = response
             .descendants()
             .find_map(|node| {
-                if node.has_tag_name("input") {
-                    let attrs = node.attributes();
-                    if let Some(attr) =
-                        attrs.iter().find(|attr| attr.name() == "RelayState")
-                    {
-                        return Some(attr.value());
-                    }
+                if node.has_tag_name("input")
+                    && node.attribute("name") == Some("RelayState")
+                {
+                    node.attribute("value")
+                } else {
+                    None
                 }
-                None
             })
             .expect("Failed to find RelayState in response");
 
