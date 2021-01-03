@@ -8,12 +8,22 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  SIDRE_TEST_IMAGE_NAME: build-cache-sidre-test
 
 jobs:
   test:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
+    - run: echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com -u $GITHUB_ACTOR --password-stdin
+    - name: Pull the image (cache)
+      run: docker pull docker.pkg.github.com/$GITHUB_REPOSITORY/$SIDRE_TEST_IMAGE_NAME || true
+    - name: Build the image
+      run: docker build --file ./docker/Dockerfile.dev . -t thing --cache-from=docker.pkg.github.com/$GITHUB_REPOSITORY/$SIDRE_TEST_IMAGE_NAME
+    - name: Tag the new docker image
+      run: |
+        docker tag thing docker.pkg.github.com/$GITHUB_REPOSITORY/$SIDRE_TEST_IMAGE_NAME && \
+         docker push docker.pkg.github.com/$GITHUB_REPOSITORY/$SIDRE_TEST_IMAGE_NAME || true
     - name: Run Test
       run: docker-compose run sidre-test cargo test --verbose
 
