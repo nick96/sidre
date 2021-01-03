@@ -224,8 +224,7 @@ mod test {
         let db = proto_db();
         let thing = messages::Thing::default();
         let key = random_key();
-        let _: Option<messages::Thing> =
-            db.insert(&key, thing.clone()).unwrap();
+        let _: Option<messages::Thing> = db.insert(&key, thing).unwrap();
         let updated = db
             .update_and_fetch(&key, |maybe_msg| {
                 let mut msg: messages::Thing = maybe_msg.unwrap();
