@@ -24,12 +24,7 @@ pub enum Error {
     /// Some other error prevented us from performing the action.
     #[cfg(feature = "data-in-memory")]
     #[error("Could not retrieve entity: {0}")]
-    SledError(#[from] sled::Error),
-    #[cfg(feature = "data-in-memory")]
-    #[error("Could not decode protobuf: {0}")]
-    DecodeError(#[from] prost::DecodeError),
-    #[error("Could not encode protobuf: {0}")]
-    EncodeError(#[from] prost::EncodeError),
+    ProstSledError(#[from] prost_sled::Error),
     // TODO: Failure when persistent-postgres is enabled.
 }
 

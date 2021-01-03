@@ -1,6 +1,5 @@
 use async_trait::async_trait;
-use bytes::BytesMut;
-use prost::Message;
+use prost_sled::ProtoDb;
 
 use super::Error;
 use crate::store::Result;
@@ -128,7 +127,7 @@ pub mod encoding {
 
 #[derive(Clone)]
 pub struct Store {
-    db: sled::Db,
+    db: ProtoDb,
 }
 
 #[async_trait]
@@ -137,11 +136,10 @@ impl crate::store::Store for Store {
         &self,
         entity_id: &str,
     ) -> super::Result<crate::service_provider::ServiceProvider> {
-        let data = self
+        let sp: encoding::ServiceProvider = self
             .db
             .get(&entity_id)?
             .ok_or_else(|| Error::NotFound(entity_id.to_string()))?;
-        let sp = encoding::ServiceProvider::decode(&*data)?;
         Ok(sp.into())
     }
 
@@ -160,7 +158,7 @@ impl crate::store::Store for Store {
         let proto_service_provider: encoding::ServiceProvider =
             service_provider.into();
 
-        let data = self
+        let sp: encoding::ServiceProvider = self
             .db
             .update_and_fetch(
                 &proto_service_provider.entity_id,
@@ -177,35 +175,7 @@ impl crate::store::Store for Store {
                             &proto_service_provider.entity_id
                         );
                     }
-                    let mut buf = BytesMut::default();
-                    if let Err(e) = proto_service_provider.encode(&mut buf) {
-                        tracing::error!(
-                            "failed to insert service provider into store: {}",
-                            e
-                        );
-                        return None;
-                    }
-
-                    if let Err(e) =
-                        self.db.insert(&proto_service_provider.entity_id, &*buf)
-                    {
-                        tracing::info!(
-                            "Failed to insert service provider: {}",
-                            e
-                        );
-                        return None;
-                    }
-
-                    match self.db.get(&proto_service_provider.entity_id) {
-                        Ok(val) => val,
-                        Err(e) => {
-                            tracing::info!(
-                                "Failed to get service provider: {}",
-                                e
-                            );
-                            None
-                        },
-                    }
+                    Some(proto_service_provider.clone())
                 },
             )?
             .ok_or_else(|| {
@@ -213,7 +183,6 @@ impl crate::store::Store for Store {
                     "failed to upsert service provider".into(),
                 )
             })?;
-        let sp = encoding::ServiceProvider::decode(&*data)?;
         Ok(sp.into())
     }
 
@@ -221,11 +190,10 @@ impl crate::store::Store for Store {
         &self,
         entity_id: &str,
     ) -> super::Result<crate::identity_provider::IdP> {
-        let encoded_idp = self
+        let idp: encoding::IdentityProvider = self
             .db
             .get(entity_id)?
             .ok_or_else(|| Error::NotFound(entity_id.into()))?;
-        let idp = encoding::IdentityProvider::decode(&*encoded_idp)?;
         Ok(idp.into())
     }
 
@@ -244,7 +212,7 @@ impl crate::store::Store for Store {
         let proto_identity_provider: encoding::IdentityProvider =
             identity_provider.into();
 
-        let data = self
+        let idp: encoding::IdentityProvider = self
             .db
             .update_and_fetch(
                 &proto_identity_provider.entity_id,
@@ -261,36 +229,7 @@ impl crate::store::Store for Store {
                             &proto_identity_provider.entity_id
                         );
                     }
-                    let mut buf = BytesMut::default();
-                    if let Err(e) = proto_identity_provider.encode(&mut buf) {
-                        tracing::error!(
-                            "failed to insert identity provider into store: {}",
-                            e
-                        );
-                        return None;
-                    }
-
-                    if let Err(e) = self
-                        .db
-                        .insert(&proto_identity_provider.entity_id, &*buf)
-                    {
-                        tracing::info!(
-                            "Failed to insert identity provider: {}",
-                            e
-                        );
-                        return None;
-                    }
-
-                    match self.db.get(&proto_identity_provider.entity_id) {
-                        Ok(val) => val,
-                        Err(e) => {
-                            tracing::info!(
-                                "Failed to get identity provider: {}",
-                                e
-                            );
-                            None
-                        },
-                    }
+                    Some(proto_identity_provider.clone())
                 },
             )?
             .ok_or_else(|| {
@@ -298,7 +237,6 @@ impl crate::store::Store for Store {
                     "failed to upsert identity provider".into(),
                 )
             })?;
-        let idp = encoding::IdentityProvider::decode(&*data)?;
         Ok(idp.into())
     }
 
@@ -308,10 +246,11 @@ impl crate::store::Store for Store {
     ) -> super::Result<crate::service_provider::ServiceProvider> {
         let proto_service_provider: encoding::ServiceProvider =
             service_provider.into();
-        let mut buf = bytes::BytesMut::default();
-        proto_service_provider.encode(&mut buf)?;
-        self.db.insert(&proto_service_provider.entity_id, &*buf)?;
-        let inserted_data = self
+        let _: Option<encoding::ServiceProvider> = self.db.insert(
+            &proto_service_provider.entity_id,
+            proto_service_provider.clone(),
+        )?;
+        let inserted_sp: encoding::ServiceProvider = self
             .db
             .get(&proto_service_provider.entity_id)?
             .ok_or_else(|| {
@@ -321,7 +260,6 @@ impl crate::store::Store for Store {
                         .into(),
                 )
             })?;
-        let inserted_sp = encoding::ServiceProvider::decode(&*inserted_data)?;
         Ok(inserted_sp.into())
     }
 
@@ -331,10 +269,11 @@ impl crate::store::Store for Store {
     ) -> super::Result<crate::identity_provider::IdP> {
         let proto_identity_provider: encoding::IdentityProvider =
             identity_provider.into();
-        let mut buf = bytes::BytesMut::default();
-        proto_identity_provider.encode(&mut buf)?;
-        self.db.insert(&proto_identity_provider.entity_id, &*buf)?;
-        let inserted_data = self
+        let _: Option<encoding::IdentityProvider> = self.db.insert(
+            &proto_identity_provider.entity_id,
+            proto_identity_provider.clone(),
+        )?;
+        let inserted_idp: encoding::IdentityProvider = self
             .db
             .get(&proto_identity_provider.entity_id)?
             .ok_or_else(|| {
@@ -344,7 +283,6 @@ impl crate::store::Store for Store {
                         .into(),
                 )
             })?;
-        let inserted_idp = encoding::IdentityProvider::decode(&*inserted_data)?;
         Ok(inserted_idp.into())
     }
 }
@@ -352,7 +290,7 @@ impl crate::store::Store for Store {
 impl Store {
     pub fn new() -> Result<Self> {
         // Open it in the tmp dir because we want this to be ephemeral.
-        let db = sled::open("/tmp/sidre-db")?;
+        let db = prost_sled::open("/tmp/sidre-db")?;
         Ok(Self { db })
     }
 }
@@ -368,18 +306,16 @@ pub fn memory_store_for_test() -> Store {
 
     let db_path = random_db_path();
     Store {
-        db: sled::open(&db_path).unwrap_or_else(|_| {
-            panic!("failed to open db at {}", db_path.display())
-        }),
+        db: sled::open(&db_path)
+            .unwrap_or_else(|_| {
+                panic!("failed to open db at {}", db_path.display())
+            })
+            .into(),
     }
 }
 
 #[cfg(test)]
 mod test {
-    use prost::{
-        bytes::{Buf, BytesMut},
-        Message,
-    };
     use rand::Rng;
 
     use super::{
@@ -405,15 +341,11 @@ mod test {
             name_id_format: NameIdFormat::EmailAddress as i32,
             base64_keys: vec![],
         };
-        let mut encoded_service_provider = BytesMut::new();
-        service_provider
-            .encode(&mut encoded_service_provider)
-            .unwrap();
 
         let store = memory_store_for_test();
-        store
+        let _: Option<super::encoding::ServiceProvider> = store
             .db
-            .insert(entity_id.as_bytes(), encoded_service_provider.bytes())?;
+            .insert(entity_id.as_bytes(), service_provider.clone())?;
         let retrieved_service_provider =
             store.get_service_provider(&entity_id).await.unwrap();
         let expected_service_provider: service_provider::ServiceProvider =
