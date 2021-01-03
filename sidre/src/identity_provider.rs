@@ -184,6 +184,7 @@ mod test {
     fn random_string() -> String {
         rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)
+            .map(char::from)
             .take(5)
             .collect()
     }
