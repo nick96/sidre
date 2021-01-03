@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package messages;
+
+message Thing {
+        string i = 1;
+        string do = 2;
+        int32 not = 3;
+        bool like = 4;
+}
+
+message Thing2 {
+        int32 green = 1;
+        string eggs = 2;
+        int64 and = 4;
+        bool ham = 5;
+}

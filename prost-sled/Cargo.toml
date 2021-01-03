@@ -1,0 +1,20 @@
+[package]
+name = "prost-sled"
+version = "0.0.0"
+authors = ["Nick Spain <nicholas.spain96@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+prost = "0.7.0"
+sled = "0.34.6"
+thiserror = "1.0.23"
+rand = "0.8.0"
+
+[build-dependencies]
+prost-build = "0.7.0"
+
+[dev-dependencies]
+anyhow = "1.0.37"
+once_cell = "1.5.2"

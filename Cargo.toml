@@ -2,4 +2,5 @@
 members = [
     "sidre",
     "xtask",
+    "prost-sled"
 ]
