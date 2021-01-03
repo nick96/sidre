@@ -1,6 +1,6 @@
 [package]
 name = "prost-sled"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Nick Spain <nicholas.spain96@gmail.com>"]
 edition = "2018"
 description = "Integration layer between prost and sled."
