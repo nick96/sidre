@@ -38,7 +38,7 @@ jobs:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
     - name: Test
-      run: cargo test --no-run --locked --verbose
+      run: cargo test --locked --verbose
 
   formatting:
     runs-on: ubuntu-20.04
