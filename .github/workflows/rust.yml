@@ -24,6 +24,7 @@ jobs:
         toolchain: stable
         profile: minimal
         override: true
+        components: rustc
     - name: Cache cargo directories
       uses: actions/cache@v2
       with:
@@ -65,15 +66,37 @@ jobs:
       with:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-    - name: Test
+    - name: Check formatting
       run: cargo fmt -- --check
 
   clippy:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+        components: clippy
+    - name: Cache cargo directories
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - name: Cache cargo target dir
+      uses: actions/cache@v2
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
     - name: Clippy
-      run: docker-compose run sidre-test cargo clippy -- -D warnings
+      run: cargo clippy -- -D warnings
 
   release:
     runs-on: ubuntu-20.04
