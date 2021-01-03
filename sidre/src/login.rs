@@ -307,7 +307,7 @@ mod test {
     // https://github.com/onelogin/ruby-saml/blob/24e90a3ec658d3ced0af7bfcdce1ce656830d9f6/lib/xml_security.rb#L223-L229
     #[tokio::test]
     async fn test_idp_cert_fingerprint_in_response() {
-        try_init_tracing();
+        let _ = try_init_tracing();
 
         let idp_entity_id = random_string();
         let sp_entity_id = "http://sp.example.com/demo1/metadata.php";
