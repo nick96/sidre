@@ -1,0 +1,20 @@
+name: Dependabot
+on:
+  pull_request:
+    types: [ labeled ]
+
+jobs:
+  approve:
+    if: ${{ github.event.label.name == 'dependencies' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install gh
+        run: |
+          curl -LO https://github.com/cli/cli/releases/download/v1.4.0/gh_1.4.0_linux_386.deb &&
+            sudo apt-get install gh_1.4.0_linux_386.deb
+      - name: Configure gh
+        run: |
+          gh config set prompt disabled
+      - name: Approve for bors
+        run: |
+          gh pr ${{github.event.issue.number}} -c -b "bors r+"
