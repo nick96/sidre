@@ -1,18 +1,53 @@
+//! prost-sled: An integration layer between [prost] and [sled].
+//!
+//! prost-sled makes it easy to store protobufs in a sled database because
+//! it abstracts away the boilerplate of encoding and decoding the protobufs.
+//! If for any reason you wish to interact with the raw bytes instead or
+//! [sled::Db] implements a method that [ProtoDb] doesn't yet, you can simply
+//! use the `from` and `into` methods of the corresponding types as [From] and
+//! [Into] are implemented as a go between, between the two types.
+
 use prost::{bytes::BytesMut, Message};
 use thiserror::Error;
 
+/// Errors that can be returned by this library. It's really a simple
+/// integration layer to encompass the possible errors returned by [sled] and
+/// [prost].
 #[derive(Debug, Error)]
 pub enum Error {
+    /// An error was returned by [sled].
     #[error(transparent)]
     SledError(#[from] sled::Error),
+    /// A decoding error ([prost::DecodeError]) occurred in [prost].
     #[error(transparent)]
     ProstDecodeError(#[from] prost::DecodeError),
+    /// An encoding error ([prost::EncodeError]) occurred in [prost].
     #[error(transparent)]
     ProstEncodeError(#[from] prost::EncodeError),
 }
 
+/// Result of a database action. That is, either some type `T` or an
+/// [enum@Error].
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// Wrapper around [sled::Db] that allows you to use types implementing
+/// [prost::Message] instead of raw bytes.
 pub struct ProtoDb(sled::Db);
+
+/// Convenience implementation to convert an existing [sled::Db] to a [ProtoDb].
+impl From<ProtoDb> for sled::Db {
+    fn from(db: ProtoDb) -> Self {
+        db.0
+    }
+}
+
+/// Escape hatch to get from a [ProtoDb] to a [sled::Db] in-case you need
+/// something more low level.
+impl From<sled::Db> for ProtoDb {
+    fn from(db: sled::Db) -> Self {
+        Self(db)
+    }
+}
 
 /// ProtoDb is a trait intended to be used to provide extension methods to
 /// [sled::Db].
@@ -107,10 +142,14 @@ impl ProtoDb {
     }
 }
 
+/// Convenience trait to convert to stdlib bytes. This is intended only for
+/// internal use (hence not `pub`) and is only implemented for `BytesMut`.
 trait BytesMutAsBytes {
     fn as_bytes(&self) -> Vec<u8>;
 }
 
+/// Conversion between `BytesMut` and `Vec<u8>`. This is just a convenience as
+/// `sled` works with `Vec<u8>` and `prost` uses `BytesMut`.
 impl BytesMutAsBytes for BytesMut {
     fn as_bytes(&self) -> Vec<u8> {
         let bytes: &[u8] = &self;
