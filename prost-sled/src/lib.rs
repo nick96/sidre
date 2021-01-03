@@ -13,7 +13,7 @@ use thiserror::Error;
 /// Errors that can be returned by this library. It's really a simple
 /// integration layer to encompass the possible errors returned by [sled] and
 /// [prost].
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum Error {
     /// An error was returned by [sled].
     #[error(transparent)]
@@ -32,6 +32,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// Wrapper around [sled::Db] that allows you to use types implementing
 /// [prost::Message] instead of raw bytes.
+#[derive(Clone)]
 pub struct ProtoDb(sled::Db);
 
 /// Convenience implementation to convert an existing [sled::Db] to a [ProtoDb].
@@ -49,12 +50,26 @@ impl From<sled::Db> for ProtoDb {
     }
 }
 
+/// Create a [ProtoDb] and return it.
+pub fn open(path: &str) -> Result<ProtoDb> {
+    let db = sled::open(path)?;
+    Ok(db.into())
+}
+
 /// ProtoDb is a trait intended to be used to provide extension methods to
 /// [sled::Db].
 ///
 /// [ProtoDb] provides methods to make it easier store and retrieve protobuf
 /// encoded data in a Sled database.
 impl ProtoDb {
+    pub fn contains_key<K>(&self, key: K) -> Result<bool>
+    where
+        K: AsRef<[u8]>,
+    {
+        let exists = self.0.contains_key(key)?;
+        Ok(exists)
+    }
+
     /// Get a value by its key.
     pub fn get<K, T>(&self, key: K) -> Result<Option<T>>
     where
