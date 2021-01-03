@@ -37,7 +37,7 @@ jobs:
         file: ./docker/Dockerfile.test
         builder: ${{ steps.buildx.outputs.name }}
         push: true
-        tags: docker.pkg.github.com/$GITHUB_REPOSITORY/build-cache-sidre-test
+        tags: docker.pkg.github.com/${{ github.repository }}/build-cache-sidre-test
         cache-from: type=local,src=/tmp/.buildx-cache
         cache-to: type=local,dest=/tmp/.buildx-cache
     - name: Run test
