@@ -17,7 +17,7 @@ default = ["data-in-memory"]
 # up the docker container and not worry about a database. Which is probably
 # easier for CI. For your development environment, you may prefer presisting
 # data using the `persistent` feature.
-data-in-memory = ["sled", "prost", "prost-build", "glob"]
+data-in-memory = ["sled", "prost", "prost-build", "glob", "prost-sled"]
 # Persist all data to the postgres database identified by the environment variable
 # DATBASE_URL.
 postgres-persistent = ["sqlx"]
@@ -44,7 +44,8 @@ bytes = "0.5.6"
 anyhow = "1.0.34"
 async-trait = "0.1.42"
 sled = { version = "0.34.6",  optional = true }
-prost = { version = "0.6.1", optional = true }
+prost = { version = "0.7.0", optional = true }
+prost-sled = { path = "../prost-sled", optional = true }
 
 [build-dependencies]
 prost-build = { version = "0.6.1", optional = true }
