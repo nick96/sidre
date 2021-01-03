@@ -97,10 +97,3 @@ jobs:
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
     - name: Clippy
       run: cargo clippy -- -D warnings
-
-  release:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
-    - name: Build release docker image
-      run: docker build -t nick96/sidre -f docker/Dockerfile.release .
