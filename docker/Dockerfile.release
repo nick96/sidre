@@ -2,6 +2,8 @@
 # and release image.
 FROM debian:buster-slim AS base
 
+LABEL org.opencontainers.image.source https://github.com/nick96/sidre
+
 ENV SQLX_OFFLINE=1
 
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
