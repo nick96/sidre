@@ -4,3 +4,4 @@ members = [
     "xtask",
     "prost-sled"
 ]
+default-members = ["sidre"]
