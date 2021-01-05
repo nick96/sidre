@@ -1793,7 +1793,7 @@ checksum = "ef703b7cb59335eae2eb93ceb664c0eb7ea6bf567079d843e09420219668e072"
 [[package]]
 name = "samael"
 version = "0.0.8"
-source = "git+https://github.com/nick96/samael#5b5077e8ccb03b95bf9cb6c83a0acfead4f02811"
+source = "git+https://github.com/nick96/samael#69358f52c8df1b0341a2e80cd6d613f2f43533bf"
 dependencies = [
  "base64 0.12.3",
  "chrono",
@@ -2603,7 +2603,7 @@ checksum = "114ba2b24d2167ef6d67d7d04c8cc86522b87f490025f39f0303b7db5bf5e3d8"
 [[package]]
 name = "xmlsec"
 version = "0.2.0"
-source = "git+https://github.com/nick96/rust-xmlsec?branch=remove-panics-and-unwraps#9bb4718a95b0d05b888c76c71e26000a687ff7c6"
+source = "git+https://github.com/nick96/rust-xmlsec?branch=remove-panics-and-unwraps#7aab59d6a313cebae51e68b3b7f60c0e546bb18c"
 dependencies = [
  "bindgen",
  "lazy_static",
