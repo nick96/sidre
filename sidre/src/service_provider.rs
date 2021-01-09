@@ -139,7 +139,7 @@ pub async fn upsert_sp_metadata<S: Store + Clone>(
     let metadata =
         EntityDescriptor::from_str(std::str::from_utf8(body.bytes())?)?;
     let entity_id = dig_entity_id(&metadata)?;
-    assert_eq!(idp_entity_id, entity_id);
+    assert_eq!(sp_entity_id, entity_id);
     // TODO-correctness: Store all the different name ID formats for the
     // different descriptors.
     let name_id_format = dig_name_id_format(&metadata)?;
