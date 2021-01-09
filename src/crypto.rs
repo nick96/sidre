@@ -95,7 +95,6 @@ pub fn sign_xml<Bytes: AsRef<[u8]>>(
     path_to_element_to_sign: &str,
     namespaces: Option<&[(&str, &str)]>,
 ) -> Result<String, Error> {
-
     let parser = XmlParser::default();
     let document = parser.parse_string(xml)?;
 
