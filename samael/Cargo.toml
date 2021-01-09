@@ -27,6 +27,6 @@ snafu = "0.6"
 rand = "0.7"
 derive_builder = "0.9.0"
 uuid = { version = "0.8.1", features = ["v4"] }
-data-encoding = "2.2.0"
+data-encoding = "2.3.1"
 xmlsec = { git = "https://github.com/nick96/rust-xmlsec", branch = "master", optional = true }
 libxml = { version = "0.2.15", optional = true }
