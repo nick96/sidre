@@ -2,6 +2,8 @@
 members = [
     "sidre",
     "xtask",
-    "prost-sled"
+    "prost-sled",
+
+    "samael",
 ]
 default-members = ["sidre"]
