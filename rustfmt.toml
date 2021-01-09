@@ -8,3 +8,4 @@ group_imports = "StdExternalCrate"
 use_field_init_shorthand = true
 format_code_in_doc_comments = true
 wrap_comments = true
+ignore = ["samael", "rust-xmlsec"]
