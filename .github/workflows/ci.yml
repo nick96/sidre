@@ -67,7 +67,7 @@ jobs:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
     - name: Check formatting
-      run: cargo fmt +nightly -- --check
+      run: cargo +nightly fmt -- --check
 
   clippy:
     runs-on: ubuntu-20.04
