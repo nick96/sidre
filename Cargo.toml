@@ -2,6 +2,10 @@
 members = [
     "sidre",
     "xtask",
-    "prost-sled"
+    "prost-sled",
+
+    # Forked deps that I've put in subtrees for convenience.
+    "samael",
+    "rust-xmlsec",
 ]
 default-members = ["sidre"]
