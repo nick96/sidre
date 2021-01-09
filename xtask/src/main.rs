@@ -140,7 +140,7 @@ fn run_rustfmt(mode: Mode) -> Result<()> {
         Mode::Overwrite => &[][..],
         // Mode::Verify => &["--", "--check"],
     };
-    cmd!("cargo fmt {check...}").run()?;
+    cmd!("cargo +nightly fmt {check...}").run()?;
     Ok(())
 }
 
