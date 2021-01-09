@@ -32,3 +32,11 @@ updates:
   labels:
     - "cargo"
     - "dependencies"
+- package-ecosystem: python
+  directory: "/test-service-provider"
+  schedule:
+    interval: daily
+  open-pull-requests-limit: 10
+  labels:
+    - "python"
+    - "dependencies"
