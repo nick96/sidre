@@ -1793,7 +1793,7 @@ checksum = "ef703b7cb59335eae2eb93ceb664c0eb7ea6bf567079d843e09420219668e072"
 [[package]]
 name = "samael"
 version = "0.0.8"
-source = "git+https://github.com/nick96/samael?rev=b62050b#b62050b2a9925c1c773e994dc438cb95023852ec"
+source = "git+https://github.com/nick96/samael?rev=b9bbb47#b9bbb4753184920be28131867818e147e14fd9e4"
 dependencies = [
  "base64 0.12.3",
  "chrono",
