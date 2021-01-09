@@ -130,6 +130,9 @@ jobs:
       with:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-    - name: Run
-      run: cargo run -p sidre -- --test-run
+    - name: Test run
+      run: |
+        cargo run -p sidre -- -p 8080
+        curl localhost:8080/ping
+        docker stop $(docker ps -q)
 

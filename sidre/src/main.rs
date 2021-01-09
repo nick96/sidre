@@ -21,10 +21,6 @@ struct AppArgs {
     port: i32,
     /// Host to run the app on.
     host: String,
-    /// Start then stop to make sure runtime things such as tokio are okay.
-    /// This is intended for testing purposes and is not document in the
-    /// usage string.
-    test_run: bool,
 }
 
 // Determine whether or not we should use the persistent store.
@@ -48,7 +44,6 @@ fn parse_args() -> Result<AppArgs, pico_args::Error> {
         host: pargs
             .opt_value_from_str(["-h", "--host"])?
             .unwrap_or_else(|| "0.0.0.0".into()),
-        test_run: pargs.contains("--test-run"),
     };
 
     Ok(args)
@@ -67,12 +62,6 @@ async fn main() {
     let addr: SocketAddr = format!("{}:{}", args.host, args.port)
         .parse()
         .expect("Invalid address");
-
-    if args.test_run {
-        eprintln!("--test-run specified so exiting before app is started.");
-        // Exit with a zero exit code because tests should pass when using this.
-        std::process::exit(0);
-    }
 
     // Run the app on 0.0.0.0 so that it works in a container.
     warp::serve(app(store).await).run(addr).await;
