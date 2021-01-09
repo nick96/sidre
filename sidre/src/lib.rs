@@ -3,6 +3,7 @@ mod error;
 mod generation;
 mod identity_provider;
 mod login;
+mod ping;
 mod service_provider;
 pub mod store;
 
@@ -17,6 +18,7 @@ use crate::{
     },
     identity_provider::get_idp_metadata_handler,
     login::{login_handler, LoginRequestParams},
+    ping::ping_handler,
     service_provider::upsert_sp_metadata_handler,
     store::with_store,
 };
@@ -49,6 +51,11 @@ pub async fn app<S: Store + Send + Sync + Clone>(
             e
         )
     }
+
+    let ping = warp::path!("ping")
+        .and_then(ping_handler)
+        .with(warp::trace::named("ping"));
+
     let idp_metadata = warp::get().and(
         // TODO: Make IdP entity ID a get param
         warp::path!(String / "metadata")
@@ -90,7 +97,7 @@ pub async fn app<S: Store + Send + Sync + Clone>(
             .and_then(idp_sp_config_handler)
             .with(warp::trace::named("config-idp-sp")));
 
-    idp_metadata
+    ping.or(idp_metadata)
         .or(login)
         .or(config)
         .or(sp_metadata)
