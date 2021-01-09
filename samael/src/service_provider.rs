@@ -1,6 +1,5 @@
 use crate::metadata::{Endpoint, IndexedEndpoint, KeyDescriptor, NameIdFormat, SpSsoDescriptor};
 use crate::schema::{Assertion, Response};
-use crate::signature::Signature;
 use crate::{
     key_info::{KeyInfo, X509Data},
     metadata::{ContactPerson, EncryptionMethod, EntityDescriptor, HTTP_POST_BINDING},
