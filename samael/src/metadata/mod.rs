@@ -23,6 +23,7 @@ pub use sp_sso_descriptor::SpSsoDescriptor;
 pub mod de {
     pub use quick_xml::de::*;
 }
+pub use entity_descriptor::Error;
 use quick_xml::events::{BytesEnd, BytesStart, Event};
 use quick_xml::Writer;
 use std::io::Cursor;
@@ -120,7 +121,7 @@ pub struct SSODescriptor {
     pub name_id_formats: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
 pub struct IdpSsoDescriptor {
     #[serde(rename = "ID")]
     pub id: Option<String>,
