@@ -80,7 +80,6 @@ impl From<libxml::parser::XmlParseError> for Error {
     }
 }
 
-<<<<<<< HEAD
 #[cfg(feature = "xmlsec")]
 impl From<openssl::error::ErrorStack> for Error {
     fn from(error: openssl::error::ErrorStack) -> Self {
@@ -88,9 +87,6 @@ impl From<openssl::error::ErrorStack> for Error {
     }
 }
 
-#[cfg(feature = "xmlsec")]
-pub fn sign_xml<Bytes: AsRef<[u8]>>(xml: Bytes, private_key_der: &[u8]) -> Result<String, Error> {
-=======
 #[cfg(feature = "usexmlsec")]
 pub fn sign_xml<Bytes: AsRef<[u8]>>(
     xml: Bytes,
@@ -99,7 +95,6 @@ pub fn sign_xml<Bytes: AsRef<[u8]>>(
     path_to_element_to_sign: &str,
     namespaces: Option<&[(&str, &str)]>,
 ) -> Result<String, Error> {
->>>>>>> 53eed40... Use xmlsec crate rather than generated bindings
     let parser = XmlParser::default();
     let document = parser.parse_string(xml)?;
 
