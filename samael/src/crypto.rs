@@ -197,7 +197,7 @@ fn find_signature_nodes(node: &libxml::tree::Node) -> Vec<libxml::tree::Node> {
 /// from all elements in the subtree rooted at the given node.
 #[cfg(feature = "usexmlsec")]
 pub fn remove_signature_verified_attributes(node: &mut libxml::tree::Node) -> Result<(), Error> {
-    node.remove_attribute_ns(ATTRIB_SIGVER, XMLNS_SIGVER)
+    node.remove_attribute(ATTRIB_SIGVER)
         .map_err(|err| Error::XmlAttributeRemovalError { error: err })?;
     for mut child_elem in node.get_child_elements() {
         remove_signature_verified_attributes(&mut child_elem)?;
