@@ -17,6 +17,6 @@ run: build
 
 
 publish: build
-	docker tag $(IMAGE_NAME) $(GIT_SHA)
+	docker tag $(IMAGE_NAME) $(IMAGE_NAME):$(GIT_SHA)
 	docker push $(IMAGE_NAME):$(GIT_SHA)
 	docker push $(IMAGE_NAME):latest
