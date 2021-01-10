@@ -1,5 +1,7 @@
 FROM python:3
 
+LABEL org.opencontainers.image.source https://github.com/nick96/sidre/test-service-provider
+
 WORKDIR /app
 
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \

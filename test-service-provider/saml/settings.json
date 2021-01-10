@@ -2,7 +2,7 @@
     "strict": false,
     "debug": true,
     "sp": {
-        "entityId": "http://localhost:5000/metadata/",
+        "entityId": "",
         "assertionConsumerService": {
             "url": "http://localhost:5000/?acs",
             "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
@@ -16,7 +16,7 @@
         "privateKey": ""
     },
     "idp": {
-        "entityId": "http://localhost:8080/saml",
+        "entityId": "",
         "singleSignOnService": {
             "url": "http://localhost:8080/idp_id/sso",
             "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
