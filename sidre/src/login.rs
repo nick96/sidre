@@ -147,12 +147,8 @@ async fn run_login<S: Store>(
         })?;
     tracing::debug!("Retrieved SP by entity ID {}: {:?}", issuer, sp);
     // TODO-correctness: Get all the keys associated with the SP and try them
-    // all. let sp_key = sqlx::query!("SELECT * FROM sp_keys WHERE sp_id =
-    // $1", sp.id)     .fetch_one(db)
-    //     .await?;
     // TODO-config: Allow configuring whether or not the request should be
-    // signed. let verified_request =
-    // unverified_request.try_verify_with_cert(&sp_key.key)?;
+    // signed.
     let identity_provider =
         IdentityProvider::from_private_key_der(&idp.private_key)?;
     let (first_name, last_name, email) = crate::generation::basic_attributes();

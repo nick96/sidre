@@ -83,6 +83,8 @@ pub async fn app<S: Store + Send + Sync + Clone>(
             .with(warp::trace::named("login")),
     );
 
+    // TODO: Implement stub logout endpoint for SLO.
+
     let config = warp::post()
         .and(
             // TODO: Make IdP entity ID a get param
