@@ -1,0 +1,72 @@
+name: Sidre
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install required system packages
+      run: |
+        sudo apt-get update && \
+          sudo apt-get install -y pkg-config libssl-dev build-essential xml-security-c-utils libxmlsec1-dev libclang-dev clang llvm libxml2-dev
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+        components: rustc
+    - uses: Swatinem/rust-cache@v1
+    - name: Test
+      run: cargo test --locked --verbose
+
+  formatting:
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        profile: minimal
+        override: true
+        components: rustfmt
+    - uses: Swatinem/rust-cache@v1
+    - name: Check formatting
+      run: cargo +nightly fmt -- --check
+
+  # If there's a tokio version mismatch it'll only fail at runtime
+  test-run:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install required system packages
+      run: |
+        sudo apt-get update && \
+          sudo apt-get install -y pkg-config libssl-dev build-essential xml-security-c-utils libxmlsec1-dev libclang-dev clang llvm libxml2-dev
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+        components: rustc
+    - uses: Swatinem/rust-cache@v1
+    - name: Test run
+      run: |
+        cargo run -p sidre -- -p 8080 &
+        curl localhost:8080/ping
+        docker stop $(docker ps -q)
+
