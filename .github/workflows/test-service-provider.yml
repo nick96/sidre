@@ -11,6 +11,9 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: test-service-provider
     steps:
       - uses: actions/checkout@v2
       - name: Login to registry
