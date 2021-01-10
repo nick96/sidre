@@ -7,3 +7,15 @@ members = [
     "samael",
 ]
 default-members = ["sidre"]
+
+[profile.release]
+# Enable link time optimisations. This is slower but produces a faster binary
+# so we only want it for release builds.
+lto = true
+# The under of units a crate is split in to. Smaller numbers lead to more
+# optimised code but slower compile times.
+codegen-units = 1
+
+[profile.dev]
+# Improves compile time and I don't usually debug the dev build.
+debug = 0
