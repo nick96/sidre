@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use chrono::{DateTime, Duration, Utc};
 use samael::{
     idp::{CertificateParams, IdentityProvider, KeyType},
@@ -17,8 +19,7 @@ use crate::{
 // Nothing in particular, 1000 just seems long enough to not be a pain in dev.
 const CERT_EXPIRY_IN_DAYS: u32 = 1000;
 
-/// Representation of a row in the `idps` table in the database.
-#[derive(Debug)]
+/// Representation of an identity provider.
 pub struct IdP {
     /// Private key used to sign the assertion. In DER format.
     pub private_key: Vec<u8>,
@@ -39,6 +40,25 @@ pub struct IdP {
     pub name_id_format: String,
     /// URL to send AuthnRequests to.
     pub redirect_url: String,
+}
+
+/// Custom [Debug] implementation that prints the [Idp.private_key] and
+/// [Idp.certificate] attributes in base64.
+impl Debug for IdP {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let pk_repr = base64::encode(&self.private_key);
+        let cert_repr = base64::encode(&self.certificate);
+        write!(
+            f,
+            r#"IdP {{ private_key: {:?}, entity_id: {:?}, metadata_valid_until: {:?}, certificate: {}, name_id_format: {:?}, redirect_url: {:?} }}"#,
+            pk_repr,
+            self.entity_id,
+            self.metadata_valid_until,
+            cert_repr,
+            self.name_id_format,
+            self.redirect_url,
+        )
+    }
 }
 
 impl IdP {

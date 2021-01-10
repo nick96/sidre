@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fmt::Debug, str::FromStr};
 
 use bytes::{Buf, Bytes};
 use samael::metadata::{EntityDescriptor, NameIdFormat};
@@ -6,7 +6,7 @@ use warp::{http::Response, Rejection, Reply};
 
 use crate::{error::Error, identity_provider::ensure_idp, store::Store};
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct ServiceProvider {
     /// Entity ID used in the metadata.
     pub entity_id: String,
@@ -17,6 +17,22 @@ pub struct ServiceProvider {
     pub consume_endpoint: String,
     /// Keys (certificates) associated with the service provider.
     pub keys: Vec<Vec<u8>>,
+}
+
+/// Custom [Debug] impl that prints the [ServiceProvider.keys] in base64.
+impl Debug for ServiceProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let keys_repr: Vec<String> =
+            self.keys.iter().map(base64::encode).collect();
+        write!(
+            f,
+            r#"ServiceProvider {{ entity_id: {:?}, name_id_format: {:?}, consume_endpoint: {:?}, keys: {:?} }}"#,
+            self.entity_id,
+            self.name_id_format,
+            self.consume_endpoint,
+            keys_repr
+        )
+    }
 }
 
 /// Create the servide provider from the specified attributes and link it to
