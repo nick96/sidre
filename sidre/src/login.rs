@@ -156,7 +156,7 @@ async fn run_login<S: Store>(
     let identity_provider =
         IdentityProvider::from_private_key_der(&idp.private_key)?;
     let (first_name, last_name, email) = crate::generation::basic_attributes();
-    let response = identity_provider.sign_authn_response(
+    let response = identity_provider.sign_authn_assertion(
         &idp.certificate,
         // TODO-config: Allow more control over who the assertion is for.
         // TODO-config: Handle more than just email address for name ID format.
@@ -252,6 +252,7 @@ mod test {
 
     use flate2::{write::DeflateEncoder, Compression};
     use rand::Rng;
+    use roxmltree::Node;
     use samael::{
         crypto::decode_x509_cert,
         metadata::{EntityDescriptor, NameIdFormat},
@@ -517,5 +518,56 @@ mod test {
             decode_x509_cert(encoded_cert).expect("Failed to decode cert cert");
 
         assert_eq!(metadata_cert, der_cert);
+    }
+
+    // At least for the time being, we only support signing the assertion but
+    // samael signs the response by default.
+    #[tokio::test]
+    async fn test_only_assertion_is_signed_in_resonse() {
+        let _ = try_init_tracing();
+
+        let idp_entity_id = random_string();
+        let sp_entity_id = "http://sp.example.com/demo1/metadata.php";
+        let host = random_string();
+        let consume_endpoint = random_string();
+        let certificates = vec![];
+
+        let store = get_store_for_test();
+        let _ = ensure_idp(store.clone(), &idp_entity_id, &host)
+            .await
+            .unwrap();
+
+        create_service_provider(
+            store.clone(),
+            &idp_entity_id,
+            sp_entity_id,
+            NameIdFormat::EmailAddressNameIDFormat.value(),
+            &consume_endpoint,
+            certificates,
+        )
+        .await
+        .unwrap();
+
+        let raw_response =
+            run_login_with_test_data(store, &idp_entity_id, None).await;
+        let response = roxmltree::Document::parse(&raw_response)
+            .expect("Failed to parse response");
+        let assertion = response
+            .descendants()
+            .find(|node| node.has_tag_name("Assertion"))
+            .unwrap();
+        // Make sure we can find a signature as part of the Assertion element.
+        let signature = assertion
+            .descendants()
+            .find(|node| node.has_tag_name("Signature"))
+            .unwrap();
+        // Make sure we can't find any other signatures in the document.
+        let other_signatures: Vec<Node> = response
+            .descendants()
+            .filter(|node| {
+                node.has_tag_name("Signature") && node.id() != signature.id()
+            })
+            .collect();
+        assert_eq!(other_signatures.len(), 0);
     }
 }
