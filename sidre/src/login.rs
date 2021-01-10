@@ -244,7 +244,7 @@ pub async fn login_handler<S: Store>(
 
 #[cfg(test)]
 mod test {
-    use std::io::prelude::Write;
+    use std::{io::prelude::Write, str::from_utf8};
 
     use flate2::{write::DeflateEncoder, Compression};
     use rand::Rng;
@@ -289,7 +289,7 @@ mod test {
     ) -> String {
         let request_xml = include_bytes!("../test-data/saml_request.xml");
         let encoded_request = prepare_request_for_url(
-            std::str::from_utf8(request_xml)
+            from_utf8(request_xml)
                 .expect("Failed to convert saml_request.xml contents to UTF-8")
                 .to_string(),
         );
@@ -355,7 +355,7 @@ mod test {
         let saml_response = base64::decode(base64_saml_response)
             .expect("SAMLResponse is invalid base64");
         let parsed_saml_response = roxmltree::Document::parse(
-            std::str::from_utf8(&saml_response)
+            from_utf8(&saml_response)
                 .expect("decoded SAMLResponse is invalid utf-8"),
         )
         .expect("failed to parse SAMLResponse");
@@ -443,7 +443,7 @@ mod test {
             .reply(&filter)
             .await;
         assert_eq!(metadata_response.status(), 200);
-        let metadata_xml = std::str::from_utf8(metadata_response.body())
+        let metadata_xml = from_utf8(metadata_response.body())
             .expect("failed to convert metadata response to utf8 string");
         let metadata: EntityDescriptor = metadata_xml
             .parse()
@@ -496,8 +496,7 @@ mod test {
         let saml_response = base64::decode(encoded_saml_response)
             .expect("failed to decode SAMLResponse");
         let parsed_saml_response = roxmltree::Document::parse(
-            std::str::from_utf8(&saml_response)
-                .expect("SAMLResponse is invalid utf-8"),
+            from_utf8(&saml_response).expect("SAMLResponse is invalid utf-8"),
         )
         .expect("failed to parse SAMLResponse");
         let encoded_cert = parsed_saml_response
@@ -544,10 +543,27 @@ mod test {
         .await
         .unwrap();
 
-        let raw_response =
+        let raw_login_form =
             run_login_with_test_data(store, &idp_entity_id, None).await;
-        let response = roxmltree::Document::parse(&raw_response)
+        let login_form = roxmltree::Document::parse(&raw_login_form)
             .expect("Failed to parse response");
+        let b64_response = login_form
+            .descendants()
+            .find_map(|node| {
+                if node.has_tag_name("input")
+                    && node.attribute("name") == Some("SAMLResponse")
+                {
+                    node.attribute("value")
+                } else {
+                    None
+                }
+            })
+            .expect("failed to get SAMLResponse");
+        let base64_response =
+            base64::decode(b64_response).expect("failed to decode base64");
+        let raw_response = from_utf8(&base64_response).expect("invalid utf-8");
+        let response = roxmltree::Document::parse(raw_response)
+            .expect("failed to parse response");
         let assertion = response
             .descendants()
             .find(|node| node.has_tag_name("Assertion"))
@@ -558,7 +574,7 @@ mod test {
             .find(|node| node.has_tag_name("Signature"))
             .unwrap();
         // Make sure we can't find any other signatures in the document.
-        let other_signatures: Vec<Node> = response
+        let other_signatures: Vec<Node> = login_form
             .descendants()
             .filter(|node| {
                 node.has_tag_name("Signature") && node.id() != signature.id()
