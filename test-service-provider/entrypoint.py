@@ -8,6 +8,8 @@ import subprocess
 b64_cert = os.environ["B64_IDP_X509"]
 sp_entity_id = os.environ["SP_ENTITY_ID"]
 idp_entity_id = os.environ["IDP_ENTITY_ID"]
+idp_host = os.environ["IDP_HOST"]
+
 settings_path = "saml/settings.json"
 
 with open(settings_path) as fh:
@@ -15,6 +17,8 @@ with open(settings_path) as fh:
 
 settings["idp"]["x509cert"] = b64_cert
 settings["idp"]["entityId"] = idp_entity_id
+settings["idp"]["singleSignOnService"]["url"] = f"{idp_host}/{idp_entity_id}/sso"
+settings["idp"]["singleLogoutService"]["url"] = f"{idp_host}/{idp_entity_id}/ssl"
 
 settings["sp"]["entityId"] = sp_entity_id
 

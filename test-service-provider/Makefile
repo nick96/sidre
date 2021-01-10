@@ -1,7 +1,4 @@
 IMAGE_NAME=ghcr.io/nick96/sidre/test-service-provider
-# B64_IDP_X509=${B64_IDP_X509}
-# SP_ENTITY_ID=${SP_ENTITY_ID}
-# IDP_ENTITY_ID=${IDP_ENTITY_ID}
 GIT_SHA=$(shell git log --oneline -n1 --format=%h)
 
 build:
@@ -13,6 +10,7 @@ run: build
 		--env B64_IDP_X509=$(B64_IDP_X509) \
 		--env SP_ENTITY_ID=$(SP_ENTITY_ID) \
 		--env IDP_ENTITY_ID=$(IDP_ENTITY_ID) \
+		--env IDP_HOST=$(IDP_HOST) \
 		--interactive \
 		--tty \
 		$(IMAGE_NAME)

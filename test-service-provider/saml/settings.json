@@ -18,11 +18,11 @@
     "idp": {
         "entityId": "",
         "singleSignOnService": {
-            "url": "http://localhost:8080/idp_id/sso",
+            "url": "",
             "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
         },
         "singleLogoutService": {
-            "url": "http://localhost:5000/idp_id/ssl",
+            "url": "",
             "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
         },
         "x509cert": ""

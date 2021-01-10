@@ -151,10 +151,6 @@ def metadata():
     settings = auth.get_settings()
     metadata = settings.get_sp_metadata()
     errors = settings.validate_metadata(metadata)
-    print("auth", auth)
-    print("settings", settings)
-    print("metadata", metadata)
-    print("errors", errors)
 
     if len(errors) == 0:
         resp = make_response(metadata, 200)
