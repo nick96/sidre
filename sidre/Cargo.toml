@@ -24,7 +24,7 @@ data-in-memory = ["sled", "prost", "prost-build", "glob", "prost-sled"]
 
 
 [dependencies]
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "1.0", features = ["full"] }
 warp = "0.2"
 tracing = "0.1.22"
 tracing-subscriber = "0.2.15"
