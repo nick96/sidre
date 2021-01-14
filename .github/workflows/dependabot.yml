@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Install gh
         run: |
-          curl -L https://github.com/cli/cli/releases/download/v1.4.0/gh_1.4.0_linux_386.deb >gh.deb &&
+          curl -L https://github.com/cli/cli/releases/download/v1.4.0/gh_1.4.0_linux_amd64.deb >gh.deb &&
             sudo apt-get install -y ./gh.deb
       - name: Configure gh
         run: |
