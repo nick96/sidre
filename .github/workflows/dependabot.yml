@@ -17,4 +17,4 @@ jobs:
           gh config set prompt disabled
       - name: Approve for bors
         run: |
-          gh pr ${{github.event.issue.number}} -c -b "bors r+"
+          gh pr review ${{github.event.number}} -c -b "bors r+"
