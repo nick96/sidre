@@ -20,4 +20,4 @@ jobs:
         run: |
           gh pr review ${{github.event.number}} -c -b "bors r+"
         env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{secrets.NICK_GH_TOKEN}}
