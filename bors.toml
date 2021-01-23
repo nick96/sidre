@@ -1,7 +1,6 @@
 status = [
     "test",
     "formatting",
-    "clippy",
     "test-run"
 ]
 delete_merged_branches = true
