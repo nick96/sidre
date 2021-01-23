@@ -2,7 +2,6 @@ name: Sidre
 
 on:
   push:
-    branches: [ main ]
     paths-ignore:
       - "test-service-provider/**"
       - ".github/workflows/test-service-provider.yml"
