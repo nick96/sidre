@@ -7,6 +7,8 @@
 //! use the `from` and `into` methods of the corresponding types as [From] and
 //! [Into] are implemented as a go between, between the two types.
 
+use std::path::Path;
+
 use prost::{bytes::BytesMut, Message};
 use thiserror::Error;
 
@@ -51,7 +53,7 @@ impl From<sled::Db> for ProtoDb {
 }
 
 /// Create a [ProtoDb] and return it.
-pub fn open(path: &str) -> Result<ProtoDb> {
+pub fn open<P: AsRef<Path>>(path: P) -> Result<ProtoDb> {
     let db = sled::open(path)?;
     Ok(db.into())
 }
