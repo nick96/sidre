@@ -306,11 +306,9 @@ pub fn memory_store_for_test() -> Store {
 
     let db_path = random_db_path();
     Store {
-        db: sled::open(&db_path)
-            .unwrap_or_else(|_| {
-                panic!("failed to open db at {}", db_path.display())
-            })
-            .into(),
+        db: prost_sled::open(&db_path).unwrap_or_else(|_| {
+            panic!("failed to open db at {}", db_path.display())
+        }),
     }
 }
 
