@@ -25,26 +25,25 @@ data-in-memory = ["prost", "prost-build", "glob", "prost-sled"]
 
 [dependencies]
 tokio = { version = "0.2", features = ["full"] }
-warp = "0.2"
-tracing = "0.1.22"
-tracing-subscriber = "0.2.15"
-chrono = "0.4.18"
-thiserror = "1.0.23"
-base64 = "0.13.0"
-serde = "1.0.118"
-flate2 = "1.0.19"
-tracing-futures = "0.2.4"
+warp = { version = "0.2", default-features = false }
+tracing = { version = "0.1.22", default-features = false, features = ["std", "attributes"] }
+tracing-subscriber = { version = "0.2.15", default-features = false, features = ["fmt", "env-filter"] }
+chrono = { version = "0.4.18", default-features = false }
+thiserror = { version = "1.0.23", default-features = false }
+base64 = { version = "0.13.0", default-features = false, features = ["std"] }
+serde = { version = "1.0.118", default-features = false }
+flate2 = { version = "1.0.19", default-features = false }
+tracing-futures = { version = "0.2.4", default-features = false }
 uuid = {version = "0.8.1", features = ["v4"]}
-rand = "0.8.0"
-askama = "0.10.5"
-serde_json = "1.0.61"
-async-trait = "0.1.42"
-pico-args = "0.4.0"
-prost = { version = "0.7.0", optional = true }
+rand = { version = "0.8.0", default-features = false, features = ["std", "std_rng"] }
+askama = { version = "0.10.5", default-features = false }
+serde_json = { version = "1.0.61", default-features = false }
+async-trait = { version = "0.1.42", default-features = false }
+pico-args = { version = "0.4.0", default-features = false }
+prost = { version = "0.7.0", optional = true, default-features = false }
 
-
-samael = { path = "../samael", features = ["usexmlsec"] }
-prost-sled = { path = "../prost-sled", optional = true }
+samael = { path = "../samael", features = ["usexmlsec"], default-features = false }
+prost-sled = { path = "../prost-sled", optional = true, default-features = false }
 
 [build-dependencies]
 prost-build = { version = "0.7.0", optional = true }
