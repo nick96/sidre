@@ -7,7 +7,6 @@ mod ping;
 mod service_provider;
 pub mod store;
 
-use anyhow::anyhow;
 use store::Store;
 use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{Filter, Rejection, Reply};
@@ -23,15 +22,15 @@ use crate::{
     store::with_store,
 };
 
-pub fn try_init_tracing() -> anyhow::Result<()> {
+pub fn try_init_tracing() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     let filter = std::env::var("RUST_LOG")
         .unwrap_or_else(|_| "tracing=info,sidre=debug".to_owned());
-
-    Ok(tracing_subscriber::fmt()
+    tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_span_events(FmtSpan::CLOSE)
-        .try_init()
-        .map_err(|e| anyhow!("tracing initialisation failed: {}", e))?)
+        .try_init()?;
+    Ok(())
 }
 
 /// Return a warp app with everything wired up.

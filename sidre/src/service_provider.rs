@@ -1,8 +1,11 @@
 use std::{fmt::Debug, str::FromStr};
 
-use bytes::{Buf, Bytes};
 use samael::metadata::{EntityDescriptor, NameIdFormat};
-use warp::{http::Response, Rejection, Reply};
+use warp::{
+    http::Response,
+    hyper::body::{Buf, Bytes},
+    Rejection, Reply,
+};
 
 use crate::{error::Error, identity_provider::ensure_idp, store::Store};
 
@@ -197,15 +200,15 @@ pub async fn upsert_sp_metadata_handler<S: Store + Clone>(
         Err(err @ Error::SamaelEntityDescriptorError(_)) => {
             tracing::warn!("Received invalid XML doc for SP metadata: {}", err);
             Ok(Response::builder().status(400).body(""))
-        },
+        }
         Err(err @ Error::MissingField(_)) => {
             tracing::warn!("Received SP metadata with missing field: {}", err);
             Ok(Response::builder().status(400).body(""))
-        },
+        }
         Err(e) => {
             tracing::error!("Upserting SP metadata failed: {}", e);
             Ok(Response::builder().status(500).body(""))
-        },
+        }
     }
 }
 

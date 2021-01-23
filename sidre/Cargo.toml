@@ -17,7 +17,7 @@ default = ["data-in-memory"]
 # up the docker container and not worry about a database. Which is probably
 # easier for CI. For your development environment, you may prefer presisting
 # data using the `persistent` feature.
-data-in-memory = ["sled", "prost", "prost-build", "glob", "prost-sled"]
+data-in-memory = ["prost", "prost-build", "glob", "prost-sled"]
 # Persist all data to the postgres database identified by the environment variable
 # DATBASE_URL.
 # postgres-persistent = ["sqlx"]
@@ -29,7 +29,6 @@ warp = "0.2"
 tracing = "0.1.22"
 tracing-subscriber = "0.2.15"
 chrono = "0.4.18"
-# sqlx = { version = "0.4.2", features = [ "runtime-tokio-native-tls", "macros", "postgres", "uuid", "chrono", "offline" ], optional = true }
 thiserror = "1.0.23"
 base64 = "0.13.0"
 serde = "1.0.118"
@@ -37,16 +36,15 @@ flate2 = "1.0.19"
 tracing-futures = "0.2.4"
 uuid = {version = "0.8.1", features = ["v4"]}
 rand = "0.8.0"
-samael = { path = "../samael", features = ["usexmlsec"] }
 askama = "0.10.5"
 serde_json = "1.0.61"
-bytes = "0.5.6"
-anyhow = "1.0.34"
 async-trait = "0.1.42"
-sled = { version = "0.34.6",  optional = true }
-prost = { version = "0.7.0", optional = true }
-prost-sled = { path = "../prost-sled", optional = true }
 pico-args = "0.4.0"
+prost = { version = "0.7.0", optional = true }
+
+
+samael = { path = "../samael", features = ["usexmlsec"] }
+prost-sled = { path = "../prost-sled", optional = true }
 
 [build-dependencies]
 prost-build = { version = "0.7.0", optional = true }
