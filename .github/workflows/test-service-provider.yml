@@ -2,6 +2,8 @@ name: Test service provider
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "test-service-provider/**"
       - ".github/workflows/test-service-provider.yml"
