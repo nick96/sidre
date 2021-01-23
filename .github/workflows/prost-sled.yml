@@ -1,0 +1,79 @@
+name: prost-sled
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+    paths:
+      - "prost-sled/**"
+      - ".github/workflows/prost-sled.yml"
+    tags:
+      - 'prost-sled-v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prost-sled
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+        components: rustfmt
+    - uses: Swatinem/rust-cache@v1
+    - name: Test
+      run: cargo test --locked --verbose
+  formatting:
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        working-directory: prost-sled
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        profile: minimal
+        override: true
+        components: rustfmt
+    - uses: Swatinem/rust-cache@v1
+    - name: Check formatting
+      run: cargo +nightly fmt -- --check
+  release:
+    defaults:
+        run:
+          working-directory: prost-sled
+    if: startsWith(github.ref, 'refs/tags')
+    needs:
+      - test
+      - formatting
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+        components: rustfmt
+    - run: cargo login ${CRATES_IO_TOKEN}
+      env:
+        CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+    - run: cargo publish
