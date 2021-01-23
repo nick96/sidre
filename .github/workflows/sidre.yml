@@ -54,12 +54,27 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
-    - name: Build release container
-      run: docker build -t sidre-release -f docker/Dockerfile.release .
+    - name: Install required system packages
+      run: |
+        sudo apt-get update && \
+          sudo apt-get install -y pkg-config libssl-dev build-essential xml-security-c-utils libxmlsec1-dev libclang-dev clang llvm libxml2-dev
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+        components: rustc
+    - uses: Swatinem/rust-cache@v1
+    - name: Build
+      run: cargo build --release -p sidre
     - name: Test run
       run: |
-        docker run -d -p 8080:8080 sidre-release
-        curl http://localhost:8080/ping
+        cargo run -p sidre -- --port 8080 &
+        curl \
+          --retry 5 \
+          --retry-delay 1 \
+          --retry-max-time 10 \
+          --retry-connrefused \
+          http://localhost:8080/ping
 
