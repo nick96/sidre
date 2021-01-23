@@ -70,11 +70,11 @@ jobs:
       run: cargo build --release -p sidre
     - name: Test run
       run: |
-        cargo run -p sidre -- --port 8080 &
+        cargo run --release -p sidre -- --port 8080 &
         curl \
           --retry 5 \
-          --retry-delay 1 \
-          --retry-max-time 10 \
+          --retry-delay 0 \
+          --retry-max-time 60 \
           --retry-connrefused \
           http://localhost:8080/ping
 
