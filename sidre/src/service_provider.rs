@@ -156,7 +156,7 @@ pub async fn upsert_sp_metadata<S: Store + Clone>(
     body: Bytes,
 ) -> Result<ServiceProvider, Error> {
     let metadata =
-        EntityDescriptor::from_str(std::str::from_utf8(body.bytes())?)?;
+        EntityDescriptor::from_str(std::str::from_utf8(body.chunk())?)?;
     let entity_id = dig_entity_id(&metadata)?;
     assert_eq!(sp_entity_id, entity_id);
     // TODO-correctness: Store all the different name ID formats for the
