@@ -9,4 +9,4 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.37"
-xshell = "0.1.8"
+xshell = "0.2.0"
