@@ -46,7 +46,7 @@ samael = { path = "../samael", features = ["usexmlsec"], default-features = fals
 prost-sled = { path = "../prost-sled", optional = true, default-features = false }
 
 [build-dependencies]
-prost-build = { version = "0.7.0", optional = true }
+prost-build = { version = "0.10.3", optional = true }
 glob = { version = "0.3.0", optional = true }
 
 [dev-dependencies]
